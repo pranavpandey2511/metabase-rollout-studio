@@ -57,12 +57,14 @@ class Settings:
         if url.strip()
     )
     max_parallel_rollouts: int = int(os.environ.get("MAX_PARALLEL_ROLLOUTS", "1"))
-    max_attempts_per_problem: int = int(os.environ.get("MAX_ATTEMPTS_PER_PROBLEM", "2"))
+    max_attempts_per_problem: int = int(os.environ.get("MAX_ATTEMPTS_PER_PROBLEM", "10"))
     rollout_timeout_seconds: int = int(os.environ.get("ROLLOUT_TIMEOUT_SECONDS", "600"))
 
     def __post_init__(self) -> None:
         if self.default_computer_use_model not in self.computer_use_models:
             raise ValueError("DEFAULT_COMPUTER_USE_MODEL must be listed in COMPUTER_USE_MODELS")
+        if self.max_attempts_per_problem < 1:
+            raise ValueError("MAX_ATTEMPTS_PER_PROBLEM must be at least 1")
 
 
 settings = Settings()

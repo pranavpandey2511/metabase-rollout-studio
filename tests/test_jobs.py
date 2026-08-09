@@ -10,8 +10,14 @@ from app.models import TaskSpec
 class JobManagerTests(unittest.TestCase):
     def test_rejects_attempts_above_configured_limit(self):
         manager = JobManager()
-        with self.assertRaisesRegex(ValueError, "limited to 2"):
-            manager.start([TaskSpec(id="one", prompt="read only")], 3, 1)
+        with self.assertRaisesRegex(
+            ValueError, f"limited to {settings.max_attempts_per_problem}"
+        ):
+            manager.start(
+                [TaskSpec(id="one", prompt="read only")],
+                settings.max_attempts_per_problem + 1,
+                1,
+            )
 
     def test_rejects_models_without_computer_use_support(self):
         manager = JobManager()

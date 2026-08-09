@@ -52,12 +52,13 @@ them:
 COMPUTER_USE_PYTHON=.venv/bin/python
 METABASE_URLS=http://localhost:33000
 MAX_PARALLEL_ROLLOUTS=1
-MAX_ATTEMPTS_PER_PROBLEM=2
+MAX_ATTEMPTS_PER_PROBLEM=10
 ROLLOUT_TIMEOUT_SECONDS=600
 ```
 
 `MAX_ATTEMPTS_PER_PROBLEM` is the maximum K the dashboard accepts. The default
-is 2 to keep this laptop stable; it can be overridden for a specific launch.
+is 10. Change it in `.env` and restart the dashboard when you need a different
+ceiling; both backend validation and the displayed UI maximum use this setting.
 
 ## Start the normal local environment
 
@@ -79,11 +80,11 @@ A fresh evaluation always gets a new job ID and a new artifact directory. The
 gym does not need a database reset between attempts because benchmark tasks are
 read-only.
 
-Stop any existing local stack, then launch the dashboard with K=5 enabled:
+Stop any existing local stack, then launch the dashboard:
 
 ```sh
 ./scripts/stop_local.sh
-MAX_ATTEMPTS_PER_PROBLEM=5 ./scripts/run_local.sh
+./scripts/run_local.sh
 ```
 
 In the dashboard:
@@ -185,7 +186,7 @@ arbitrary threshold turns a problem into a pass/fail verdict.
 | --- | --- | --- |
 | `DEFAULT_COMPUTER_USE_MODEL` | Preselected model in the dashboard | `gemini-3.6-flash` |
 | `COMPUTER_USE_MODELS` | Comma-separated model allowlist | Documented Computer Use models |
-| `MAX_ATTEMPTS_PER_PROBLEM` | Maximum selectable K | `2` |
+| `MAX_ATTEMPTS_PER_PROBLEM` | Maximum selectable K | `10` |
 | `MAX_PARALLEL_ROLLOUTS` | Maximum simultaneous attempts | `1` |
 | `METABASE_URLS` | Comma-separated isolated gym URLs | `http://localhost:33000` |
 | `ROLLOUT_TIMEOUT_SECONDS` | Per-attempt timeout | `600` |
@@ -202,7 +203,7 @@ adding a separately tunnelled second URL to `METABASE_URLS`.
 | `Cannot connect to the Docker daemon` | Run `./scripts/run_local.sh`; it starts or repairs Colima and selects its Docker context. |
 | `ERR_CONNECTION_REFUSED` at Metabase | Wait for the launcher health check to succeed. If it persists, run `docker compose logs metabase-1`. |
 | Dashboard shows an old job as missing | The server restarted; the UI stops polling stale job IDs. Start a new evaluation—saved artifacts remain in `runs/`. |
-| K=5 is rejected | Relaunch with `MAX_ATTEMPTS_PER_PROBLEM=5 ./scripts/run_local.sh`, then refresh the dashboard. |
+| A K value is rejected | Set `MAX_ATTEMPTS_PER_PROBLEM` to at least that value in `.env`, restart with `./scripts/run_local.sh`, then refresh the dashboard. |
 | A run reaches the timeout | Inspect its `agent.log`, trace, and screenshots; it is recorded as an infrastructure error rather than a benchmark pass. |
 
 ## Verification

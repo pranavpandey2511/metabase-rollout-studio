@@ -31,6 +31,11 @@ class WebTests(unittest.TestCase):
         self.assertIn('select name="model_name"', INDEX_HTML)
         self.assertIn("fetch('/api/config')", INDEX_HTML)
 
+    def test_attempt_limit_label_and_input_use_runtime_config(self):
+        self.assertIn('id="attempts-max"', INDEX_HTML)
+        self.assertIn("$('attempts-max').textContent=config.max_attempts_per_problem", INDEX_HTML)
+        self.assertIn("attempts.max=config.max_attempts_per_problem", INDEX_HTML)
+
     def test_attempt_replay_includes_problem_and_action_before_thinking(self):
         self.assertIn("Problem statement given to the agent", INDEX_HTML)
         replay = INDEX_HTML[INDEX_HTML.index("function renderReplay") :]
