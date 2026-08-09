@@ -1,0 +1,107 @@
+services:
+  db-1:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - db1data:/var/lib/postgresql/data
+
+  metabase-1:
+    image: ${METABASE_IMAGE:-metabase/metabase:v0.58.5}
+    mem_limit: 1g
+    depends_on:
+      bootstrap-1:
+        condition: service_completed_successfully
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: root_db
+      MB_DB_HOST: db-1
+      MB_DB_PORT: 5432
+      MB_DB_USER: postgres
+      MB_DB_PASS: postgres
+      MB_SAMPLE_DATA: "true"
+      MB_JETTY_HOST: 0.0.0.0
+      JAVA_TOOL_OPTIONS: -Xms256m -Xmx768m
+    ports:
+      - "3000:3000"
+
+  bootstrap-1:
+    image: postgres:17-alpine
+    depends_on:
+      db-1:
+        condition: service_healthy
+    environment:
+      PGHOST: db-1
+      PGPORT: 5432
+      PGDATABASE: postgres
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    volumes:
+      - ./data:/bootstrap:ro
+      - ./scripts/bootstrap_metabase.sh:/bootstrap_metabase.sh:ro
+    command: ["/bin/sh", "/bootstrap_metabase.sh"]
+
+  db-2:
+    profiles: ["pool2"]
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - db2data:/var/lib/postgresql/data
+
+  metabase-2:
+    profiles: ["pool2"]
+    image: ${METABASE_IMAGE:-metabase/metabase:v0.58.5}
+    mem_limit: 1g
+    depends_on:
+      bootstrap-2:
+        condition: service_completed_successfully
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: root_db
+      MB_DB_HOST: db-2
+      MB_DB_PORT: 5432
+      MB_DB_USER: postgres
+      MB_DB_PASS: postgres
+      MB_SAMPLE_DATA: "true"
+      MB_JETTY_HOST: 0.0.0.0
+      JAVA_TOOL_OPTIONS: -Xms256m -Xmx768m
+    ports:
+      - "3001:3000"
+
+  bootstrap-2:
+    profiles: ["pool2"]
+    image: postgres:17-alpine
+    depends_on:
+      db-2:
+        condition: service_healthy
+    environment:
+      PGHOST: db-2
+      PGPORT: 5432
+      PGDATABASE: postgres
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    volumes:
+      - ./data:/bootstrap:ro
+      - ./scripts/bootstrap_metabase.sh:/bootstrap_metabase.sh:ro
+    command: ["/bin/sh", "/bootstrap_metabase.sh"]
+
+volumes:
+  db1data:
+    name: rl_mots_db1data
+  db2data:
+    name: rl_mots_db2data

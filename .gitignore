@@ -1,0 +1,11 @@
+.env
+.venv/
+.pytest_cache/
+*.DS_Store
+__pycache__/
+*.py[cod]
+runs/
+archive/
+data/metabase_envdata.sql
+work/computer-use-preview/
+postgres-data/
