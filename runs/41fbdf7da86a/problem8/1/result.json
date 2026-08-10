@@ -1,0 +1,63 @@
+{
+  "run_id": "problem8-1-360b02f9",
+  "task_id": "problem8",
+  "attempt": 1,
+  "environment_url": "http://localhost:33000",
+  "model_name": "gemini-3.6-flash",
+  "status": "passed",
+  "started_at": "2026-08-10T11:49:03.347118+00:00",
+  "finished_at": "2026-08-10T11:54:57.812513+00:00",
+  "duration_seconds": 354.46,
+  "grade": {
+    "status": "passed",
+    "score": 1.0,
+    "evidence": "The last JSON value in the final answer exactly matched the golden answer.",
+    "method": "exact_final_json",
+    "expected": {
+      "sum": 101203.3,
+      "email": "oda.yost@hotmail.example",
+      "last_name": "Yost",
+      "first_name": "Oda"
+    },
+    "actual": {
+      "first_name": "Oda",
+      "last_name": "Yost",
+      "email": "oda.yost@hotmail.example",
+      "sum": 101203.3
+    },
+    "checks": [
+      {
+        "name": "Final answer is valid JSON",
+        "passed": true,
+        "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+      },
+      {
+        "name": "Field 'sum'",
+        "passed": true,
+        "detail": "Observed value exactly matches the expected value."
+      },
+      {
+        "name": "Field 'email'",
+        "passed": true,
+        "detail": "Observed value exactly matches the expected value."
+      },
+      {
+        "name": "Field 'last_name'",
+        "passed": true,
+        "detail": "Observed value exactly matches the expected value."
+      },
+      {
+        "name": "Field 'first_name'",
+        "passed": true,
+        "detail": "Observed value exactly matches the expected value."
+      },
+      {
+        "name": "Exact structure and values",
+        "passed": true,
+        "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+      }
+    ]
+  },
+  "error": null,
+  "artifact_dir": "41fbdf7da86a/problem8/1"
+}

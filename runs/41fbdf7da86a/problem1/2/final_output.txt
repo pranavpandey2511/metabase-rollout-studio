@@ -1,0 +1,12 @@
+{
+  "product_titles": [
+    "Rustic Paper Wallet",
+    "Ergonomic Wool Bag",
+    "Lightweight Linen Hat"
+  ],
+  "ratings": [
+    4.6,
+    5,
+    5
+  ]
+}

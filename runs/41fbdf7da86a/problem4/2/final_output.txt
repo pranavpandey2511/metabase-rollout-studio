@@ -1,0 +1,5 @@
+{
+  "product": "Rustic Paper Car",
+  "category": "Doohickey",
+  "price": 19.87
+}

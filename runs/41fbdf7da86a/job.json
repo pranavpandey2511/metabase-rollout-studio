@@ -1,0 +1,1163 @@
+{
+  "id": "41fbdf7da86a",
+  "title": "Deeptune hackathon",
+  "source_filename": "tasks.json",
+  "created_at": "2026-08-10T10:48:45.591419+00:00",
+  "status": "complete",
+  "attempts": 2,
+  "parallelism": 1,
+  "model_name": "gemini-3.6-flash",
+  "cancel_requested_at": null,
+  "error": null,
+  "task_count": 10,
+  "problems": [
+    {
+      "id": "problem1",
+      "prompt": "Retrieve product titles and ratings for products with ratings above '4.5' and price less than '40'. Return in the format {product_titles: list[str], ratings: list[number]}."
+    },
+    {
+      "id": "problem2",
+      "prompt": "List the top 3 product with a rating review of 5 that has the most orders and provide their order counts. Return in the format {product_titles: list[str], order_counts: list[number]}"
+    },
+    {
+      "id": "problem3",
+      "prompt": "Identify the most expensive product in each category ('Doohickey', 'Gadget', 'Gizmo', 'Widget'). Return in the format {Doohickey: str, Gadget: str, Gizmo: str, Widget: str}"
+    },
+    {
+      "id": "problem4",
+      "prompt": "Retrieve the name, category, and price of the product that has been ordered exactly 100 times and has the lowest price. Return in the format {product: str, category: str, price: number}."
+    },
+    {
+      "id": "problem5",
+      "prompt": "Retrieve the account full name and feedback rating associated with Feedback ID '456'. Return in the format {rating: number, full_name: str}."
+    },
+    {
+      "id": "problem6",
+      "prompt": "Identify which quarter of the year 2025 had the highest number of Reviews created and provide the total count. Return in the format {quarter: str, count: number}."
+    },
+    {
+      "id": "problem7",
+      "prompt": "Retrieve the name of the person who has the highest number of orders and the total count of their orders. Return in the format {person_name: str, order_count: number}."
+    },
+    {
+      "id": "problem8",
+      "prompt": "Retrieve the first name, last name, and email of the account with the highest total invoice payment amount. Return in the format {first_name: str, last_name: str, email: str, sum: number}."
+    },
+    {
+      "id": "problem9",
+      "prompt": "List all people's names from state 'IL' who were born in 1990 and have placed at least one order. Return in the format {names: list[str]}."
+    },
+    {
+      "id": "problem10",
+      "prompt": "Calculate the average rating for products in the 'Widget' category. Return in the format {avg_rating: number}."
+    }
+  ],
+  "runs": [
+    {
+      "run_id": "problem1-1-409e545d",
+      "task_id": "problem1",
+      "attempt": 1,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "passed",
+      "started_at": "2026-08-10T10:48:45.592561+00:00",
+      "finished_at": "2026-08-10T10:55:22.071603+00:00",
+      "duration_seconds": 396.47,
+      "grade": {
+        "status": "passed",
+        "score": 1.0,
+        "evidence": "The last JSON value in the final answer exactly matched the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "ratings": [
+            4.6,
+            5,
+            5
+          ],
+          "product_titles": [
+            "Rustic Paper Wallet",
+            "Ergonomic Wool Bag",
+            "Lightweight Linen Hat"
+          ]
+        },
+        "actual": {
+          "product_titles": [
+            "Rustic Paper Wallet",
+            "Ergonomic Wool Bag",
+            "Lightweight Linen Hat"
+          ],
+          "ratings": [
+            4.6,
+            5,
+            5
+          ]
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'ratings'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'product_titles'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": true,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem1/1"
+    },
+    {
+      "run_id": "problem1-2-4e6fcf91",
+      "task_id": "problem1",
+      "attempt": 2,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "passed",
+      "started_at": "2026-08-10T10:55:22.072600+00:00",
+      "finished_at": "2026-08-10T10:59:02.296634+00:00",
+      "duration_seconds": 220.22,
+      "grade": {
+        "status": "passed",
+        "score": 1.0,
+        "evidence": "The last JSON value in the final answer exactly matched the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "ratings": [
+            4.6,
+            5,
+            5
+          ],
+          "product_titles": [
+            "Rustic Paper Wallet",
+            "Ergonomic Wool Bag",
+            "Lightweight Linen Hat"
+          ]
+        },
+        "actual": {
+          "product_titles": [
+            "Rustic Paper Wallet",
+            "Ergonomic Wool Bag",
+            "Lightweight Linen Hat"
+          ],
+          "ratings": [
+            4.6,
+            5,
+            5
+          ]
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'ratings'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'product_titles'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": true,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem1/2"
+    },
+    {
+      "run_id": "problem10-1-85587ff0",
+      "task_id": "problem10",
+      "attempt": 1,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "passed",
+      "started_at": "2026-08-10T12:14:28.967735+00:00",
+      "finished_at": "2026-08-10T12:18:26.682575+00:00",
+      "duration_seconds": 237.71,
+      "grade": {
+        "status": "passed",
+        "score": 1.0,
+        "evidence": "The last JSON value in the final answer exactly matched the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "avg_rating": 3.15
+        },
+        "actual": {
+          "avg_rating": 3.15
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'avg_rating'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": true,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem10/1"
+    },
+    {
+      "run_id": "problem10-2-ad08c757",
+      "task_id": "problem10",
+      "attempt": 2,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "passed",
+      "started_at": "2026-08-10T12:18:26.683971+00:00",
+      "finished_at": "2026-08-10T12:22:17.982377+00:00",
+      "duration_seconds": 231.3,
+      "grade": {
+        "status": "passed",
+        "score": 1.0,
+        "evidence": "The last JSON value in the final answer exactly matched the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "avg_rating": 3.15
+        },
+        "actual": {
+          "avg_rating": 3.15
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'avg_rating'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": true,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem10/2"
+    },
+    {
+      "run_id": "problem2-1-f73a73f9",
+      "task_id": "problem2",
+      "attempt": 1,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "failed",
+      "started_at": "2026-08-10T10:59:02.298112+00:00",
+      "finished_at": "2026-08-10T11:04:54.698257+00:00",
+      "duration_seconds": 352.4,
+      "grade": {
+        "status": "failed",
+        "score": 0.0,
+        "evidence": "The last JSON value in the final answer did not exactly match the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "order_counts": [
+            996,
+            700,
+            664
+          ],
+          "product_titles": [
+            "Fantastic Rubber Knife",
+            "Awesome Plastic Watch",
+            "Incredible Bronze Wallet"
+          ]
+        },
+        "actual": {
+          "product_titles": [
+            "Incredible Concrete Watch",
+            "Ergonomic Wool Bag",
+            "Lightweight Linen Hat"
+          ],
+          "order_counts": [
+            101,
+            92,
+            85
+          ]
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'order_counts'",
+            "passed": false,
+            "detail": "Expected [996, 700, 664]; observed [101, 92, 85]."
+          },
+          {
+            "name": "Field 'product_titles'",
+            "passed": false,
+            "detail": "Expected [\"Fantastic Rubber Knife\", \"Awesome Plastic Watch\", \"Incredible Bronze Wallet\"]; observed [\"Incredible Concrete Watch\", \"Ergonomic Wool Bag\", \"Lightweight Linen Hat\"]."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": false,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem2/1"
+    },
+    {
+      "run_id": "problem2-2-a85e2921",
+      "task_id": "problem2",
+      "attempt": 2,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "failed",
+      "started_at": "2026-08-10T11:04:54.699490+00:00",
+      "finished_at": "2026-08-10T11:13:15.094128+00:00",
+      "duration_seconds": 500.39,
+      "grade": {
+        "status": "failed",
+        "score": 0.0,
+        "evidence": "The last JSON value in the final answer did not exactly match the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "order_counts": [
+            996,
+            700,
+            664
+          ],
+          "product_titles": [
+            "Fantastic Rubber Knife",
+            "Awesome Plastic Watch",
+            "Incredible Bronze Wallet"
+          ]
+        },
+        "actual": {
+          "product_titles": [
+            "Incredible Concrete Watch",
+            "Ergonomic Wool Bag",
+            "Lightweight Linen Hat"
+          ],
+          "order_counts": [
+            101,
+            92,
+            85
+          ]
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'order_counts'",
+            "passed": false,
+            "detail": "Expected [996, 700, 664]; observed [101, 92, 85]."
+          },
+          {
+            "name": "Field 'product_titles'",
+            "passed": false,
+            "detail": "Expected [\"Fantastic Rubber Knife\", \"Awesome Plastic Watch\", \"Incredible Bronze Wallet\"]; observed [\"Incredible Concrete Watch\", \"Ergonomic Wool Bag\", \"Lightweight Linen Hat\"]."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": false,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem2/2"
+    },
+    {
+      "run_id": "problem3-1-b09772bb",
+      "task_id": "problem3",
+      "attempt": 1,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "passed",
+      "started_at": "2026-08-10T11:13:15.095648+00:00",
+      "finished_at": "2026-08-10T11:17:48.911682+00:00",
+      "duration_seconds": 273.81,
+      "grade": {
+        "status": "passed",
+        "score": 1.0,
+        "evidence": "The last JSON value in the final answer exactly matched the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "Gizmo": "Small Marble Knife",
+          "Gadget": "Incredible Aluminum Knife",
+          "Widget": "Awesome Steel Toucan",
+          "Doohickey": "Aerodynamic Linen Coat"
+        },
+        "actual": {
+          "Doohickey": "Aerodynamic Linen Coat",
+          "Gadget": "Incredible Aluminum Knife",
+          "Gizmo": "Small Marble Knife",
+          "Widget": "Awesome Steel Toucan"
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'Gizmo'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'Gadget'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'Widget'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'Doohickey'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": true,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem3/1"
+    },
+    {
+      "run_id": "problem3-2-f3448bca",
+      "task_id": "problem3",
+      "attempt": 2,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "passed",
+      "started_at": "2026-08-10T11:17:48.913779+00:00",
+      "finished_at": "2026-08-10T11:20:36.793425+00:00",
+      "duration_seconds": 167.88,
+      "grade": {
+        "status": "passed",
+        "score": 1.0,
+        "evidence": "The last JSON value in the final answer exactly matched the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "Gizmo": "Small Marble Knife",
+          "Gadget": "Incredible Aluminum Knife",
+          "Widget": "Awesome Steel Toucan",
+          "Doohickey": "Aerodynamic Linen Coat"
+        },
+        "actual": {
+          "Doohickey": "Aerodynamic Linen Coat",
+          "Gadget": "Incredible Aluminum Knife",
+          "Gizmo": "Small Marble Knife",
+          "Widget": "Awesome Steel Toucan"
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'Gizmo'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'Gadget'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'Widget'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'Doohickey'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": true,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem3/2"
+    },
+    {
+      "run_id": "problem4-1-d581f4ae",
+      "task_id": "problem4",
+      "attempt": 1,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "passed",
+      "started_at": "2026-08-10T11:20:36.794834+00:00",
+      "finished_at": "2026-08-10T11:23:05.916818+00:00",
+      "duration_seconds": 149.12,
+      "grade": {
+        "status": "passed",
+        "score": 1.0,
+        "evidence": "The last JSON value in the final answer exactly matched the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "price": 19.87,
+          "product": "Rustic Paper Car",
+          "category": "Doohickey"
+        },
+        "actual": {
+          "product": "Rustic Paper Car",
+          "category": "Doohickey",
+          "price": 19.87
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'price'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'product'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'category'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": true,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem4/1"
+    },
+    {
+      "run_id": "problem4-2-3529b0cd",
+      "task_id": "problem4",
+      "attempt": 2,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "passed",
+      "started_at": "2026-08-10T11:23:05.918433+00:00",
+      "finished_at": "2026-08-10T11:26:44.707904+00:00",
+      "duration_seconds": 218.79,
+      "grade": {
+        "status": "passed",
+        "score": 1.0,
+        "evidence": "The last JSON value in the final answer exactly matched the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "price": 19.87,
+          "product": "Rustic Paper Car",
+          "category": "Doohickey"
+        },
+        "actual": {
+          "product": "Rustic Paper Car",
+          "category": "Doohickey",
+          "price": 19.87
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'price'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'product'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'category'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": true,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem4/2"
+    },
+    {
+      "run_id": "problem5-1-06cb0385",
+      "task_id": "problem5",
+      "attempt": 1,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "passed",
+      "started_at": "2026-08-10T11:26:44.709151+00:00",
+      "finished_at": "2026-08-10T11:29:40.620343+00:00",
+      "duration_seconds": 175.91,
+      "grade": {
+        "status": "passed",
+        "score": 1.0,
+        "evidence": "The last JSON value in the final answer exactly matched the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "rating": 4,
+          "full_name": "Chris Satterfield"
+        },
+        "actual": {
+          "rating": 4,
+          "full_name": "Chris Satterfield"
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'rating'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'full_name'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": true,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem5/1"
+    },
+    {
+      "run_id": "problem5-2-1c3f89e0",
+      "task_id": "problem5",
+      "attempt": 2,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "passed",
+      "started_at": "2026-08-10T11:29:40.622082+00:00",
+      "finished_at": "2026-08-10T11:32:04.053807+00:00",
+      "duration_seconds": 143.43,
+      "grade": {
+        "status": "passed",
+        "score": 1.0,
+        "evidence": "The last JSON value in the final answer exactly matched the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "rating": 4,
+          "full_name": "Chris Satterfield"
+        },
+        "actual": {
+          "rating": 4,
+          "full_name": "Chris Satterfield"
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'rating'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'full_name'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": true,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem5/2"
+    },
+    {
+      "run_id": "problem6-1-aa3ff536",
+      "task_id": "problem6",
+      "attempt": 1,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "failed",
+      "started_at": "2026-08-10T11:32:04.055210+00:00",
+      "finished_at": "2026-08-10T11:37:17.363246+00:00",
+      "duration_seconds": 313.31,
+      "grade": {
+        "status": "failed",
+        "score": 0.0,
+        "evidence": "The last JSON value in the final answer did not exactly match the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "count": 126,
+          "quarter": "Q4"
+        },
+        "actual": {
+          "quarter": "Q4 2025",
+          "count": 126
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'count'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'quarter'",
+            "passed": false,
+            "detail": "Expected \"Q4\"; observed \"Q4 2025\"."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": false,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem6/1"
+    },
+    {
+      "run_id": "problem6-2-35afc949",
+      "task_id": "problem6",
+      "attempt": 2,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "failed",
+      "started_at": "2026-08-10T11:37:17.364904+00:00",
+      "finished_at": "2026-08-10T11:41:59.119288+00:00",
+      "duration_seconds": 281.75,
+      "grade": {
+        "status": "failed",
+        "score": 0.0,
+        "evidence": "The last JSON value in the final answer did not exactly match the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "count": 126,
+          "quarter": "Q4"
+        },
+        "actual": {
+          "quarter": "Q4 2025",
+          "count": 126
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'count'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'quarter'",
+            "passed": false,
+            "detail": "Expected \"Q4\"; observed \"Q4 2025\"."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": false,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem6/2"
+    },
+    {
+      "run_id": "problem7-1-dd00eefc",
+      "task_id": "problem7",
+      "attempt": 1,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "passed",
+      "started_at": "2026-08-10T11:41:59.121153+00:00",
+      "finished_at": "2026-08-10T11:45:15.615161+00:00",
+      "duration_seconds": 196.49,
+      "grade": {
+        "status": "passed",
+        "score": 1.0,
+        "evidence": "The last JSON value in the final answer exactly matched the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "order_count": 46,
+          "person_name": "Keith Bradtke"
+        },
+        "actual": {
+          "person_name": "Keith Bradtke",
+          "order_count": 46
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'order_count'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'person_name'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": true,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem7/1"
+    },
+    {
+      "run_id": "problem7-2-b3ad11cf",
+      "task_id": "problem7",
+      "attempt": 2,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "passed",
+      "started_at": "2026-08-10T11:45:15.616742+00:00",
+      "finished_at": "2026-08-10T11:49:03.345226+00:00",
+      "duration_seconds": 227.73,
+      "grade": {
+        "status": "passed",
+        "score": 1.0,
+        "evidence": "The last JSON value in the final answer exactly matched the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "order_count": 46,
+          "person_name": "Keith Bradtke"
+        },
+        "actual": {
+          "person_name": "Keith Bradtke",
+          "order_count": 46
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'order_count'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'person_name'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": true,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem7/2"
+    },
+    {
+      "run_id": "problem8-1-360b02f9",
+      "task_id": "problem8",
+      "attempt": 1,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "passed",
+      "started_at": "2026-08-10T11:49:03.347118+00:00",
+      "finished_at": "2026-08-10T11:54:57.812513+00:00",
+      "duration_seconds": 354.46,
+      "grade": {
+        "status": "passed",
+        "score": 1.0,
+        "evidence": "The last JSON value in the final answer exactly matched the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "sum": 101203.3,
+          "email": "oda.yost@hotmail.example",
+          "last_name": "Yost",
+          "first_name": "Oda"
+        },
+        "actual": {
+          "first_name": "Oda",
+          "last_name": "Yost",
+          "email": "oda.yost@hotmail.example",
+          "sum": 101203.3
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'sum'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'email'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'last_name'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'first_name'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": true,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem8/1"
+    },
+    {
+      "run_id": "problem8-2-798450f5",
+      "task_id": "problem8",
+      "attempt": 2,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "passed",
+      "started_at": "2026-08-10T11:54:57.813873+00:00",
+      "finished_at": "2026-08-10T12:02:51.203975+00:00",
+      "duration_seconds": 473.39,
+      "grade": {
+        "status": "passed",
+        "score": 1.0,
+        "evidence": "The last JSON value in the final answer exactly matched the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "sum": 101203.3,
+          "email": "oda.yost@hotmail.example",
+          "last_name": "Yost",
+          "first_name": "Oda"
+        },
+        "actual": {
+          "first_name": "Oda",
+          "last_name": "Yost",
+          "email": "oda.yost@hotmail.example",
+          "sum": 101203.3
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'sum'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'email'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'last_name'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Field 'first_name'",
+            "passed": true,
+            "detail": "Observed value exactly matches the expected value."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": true,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem8/2"
+    },
+    {
+      "run_id": "problem9-1-cdff2799",
+      "task_id": "problem9",
+      "attempt": 1,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "failed",
+      "started_at": "2026-08-10T12:02:51.206082+00:00",
+      "finished_at": "2026-08-10T12:08:12.823036+00:00",
+      "duration_seconds": 321.62,
+      "grade": {
+        "status": "failed",
+        "score": 0.0,
+        "evidence": "The last JSON value in the final answer did not exactly match the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "names": [
+            "Alvis Emmerich",
+            "Florida Hackett",
+            "Lilian Roberts",
+            "Rupert Walsh"
+          ]
+        },
+        "actual": {
+          "names": [
+            "Rupert Walsh",
+            "Lilian Roberts",
+            "Florida Hackett",
+            "Alvis Emmerich"
+          ]
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'names'",
+            "passed": false,
+            "detail": "Expected [\"Alvis Emmerich\", \"Florida Hackett\", \"Lilian Roberts\", \"Rupert Walsh\"]; observed [\"Rupert Walsh\", \"Lilian Roberts\", \"Florida Hackett\", \"Alvis Emmerich\"]."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": false,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem9/1"
+    },
+    {
+      "run_id": "problem9-2-aa1f5eca",
+      "task_id": "problem9",
+      "attempt": 2,
+      "environment_url": "http://localhost:33000",
+      "model_name": "gemini-3.6-flash",
+      "status": "failed",
+      "started_at": "2026-08-10T12:08:12.825681+00:00",
+      "finished_at": "2026-08-10T12:14:28.965906+00:00",
+      "duration_seconds": 376.14,
+      "grade": {
+        "status": "failed",
+        "score": 0.0,
+        "evidence": "The last JSON value in the final answer did not exactly match the golden answer.",
+        "method": "exact_final_json",
+        "expected": {
+          "names": [
+            "Alvis Emmerich",
+            "Florida Hackett",
+            "Lilian Roberts",
+            "Rupert Walsh"
+          ]
+        },
+        "actual": {
+          "names": [
+            "Rupert Walsh",
+            "Lilian Roberts",
+            "Florida Hackett",
+            "Alvis Emmerich"
+          ]
+        },
+        "checks": [
+          {
+            "name": "Final answer is valid JSON",
+            "passed": true,
+            "detail": "Found 1 JSON candidate(s); compared the last one as the submitted answer."
+          },
+          {
+            "name": "Field 'names'",
+            "passed": false,
+            "detail": "Expected [\"Alvis Emmerich\", \"Florida Hackett\", \"Lilian Roberts\", \"Rupert Walsh\"]; observed [\"Rupert Walsh\", \"Lilian Roberts\", \"Florida Hackett\", \"Alvis Emmerich\"]."
+          },
+          {
+            "name": "Exact structure and values",
+            "passed": false,
+            "detail": "Object key order is ignored; list order, values, spelling, and membership must match."
+          }
+        ]
+      },
+      "error": null,
+      "artifact_dir": "41fbdf7da86a/problem9/2"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "first_name": "Oda",
+  "last_name": "Yost",
+  "email": "oda.yost@hotmail.example",
+  "sum": 101203.3
+}

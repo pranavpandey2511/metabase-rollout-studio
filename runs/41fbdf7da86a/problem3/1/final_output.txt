@@ -1,0 +1,6 @@
+{
+  "Doohickey": "Aerodynamic Linen Coat",
+  "Gadget": "Incredible Aluminum Knife",
+  "Gizmo": "Small Marble Knife",
+  "Widget": "Awesome Steel Toucan"
+}
