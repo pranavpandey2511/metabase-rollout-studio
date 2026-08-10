@@ -24,8 +24,13 @@ for pid in $(lsof -tiTCP:8000 -sTCP:LISTEN 2>/dev/null || true); do
   esac
 done
 
-if [ ! -x .venv/bin/uvicorn ]; then
-  echo "Missing .venv. Run: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt" >&2
+if ! command -v uv >/dev/null 2>&1; then
+  echo "uv is required. Run ./scripts/setup.sh after installing uv." >&2
+  exit 1
+fi
+
+if [ ! -f uv.lock ]; then
+  echo "Missing uv.lock. Run ./scripts/setup.sh." >&2
   exit 1
 fi
 
@@ -34,9 +39,9 @@ if [ ! -s data/metabase_envdata.sql ]; then
   exit 1
 fi
 
-.venv/bin/python -m app.runtime
+uv run --locked python -m app.runtime
 
 echo "Rollout Studio is starting at http://127.0.0.1:8000"
 echo "Press Ctrl-C to stop the dashboard. Run ./scripts/stop_local.sh to stop everything."
 
-exec .venv/bin/uvicorn app.web:app --host 127.0.0.1 --port 8000
+exec uv run --locked uvicorn app.web:app --host 127.0.0.1 --port 8000

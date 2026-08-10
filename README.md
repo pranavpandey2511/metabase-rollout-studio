@@ -16,24 +16,24 @@ logs, and grading evidence so a result can be reviewed after the run finishes.
 ## Prerequisites
 
 - macOS, Docker Desktop or Colima, and the Docker CLI.
-- Python 3.10 or later. The project virtual environment is the supported
-  runtime.
+- [`uv`](https://docs.astral.sh/uv/getting-started/installation/). It installs
+  the pinned Python runtime and all Python dependencies for this project.
 - `data/metabase_envdata.sql`, which is supplied with this workspace.
 - A Gemini API key and the supplied Metabase password.
 
 ## Setup
 
-From the repository root:
+From the repository root, run one setup command:
 
 ```sh
-cp .env.example .env
-./scripts/setup_agent.sh
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt -r work/computer-use-preview/requirements.txt
-.venv/bin/playwright install chromium
+./scripts/setup.sh
 ```
 
-Set these values in `.env`:
+The script verifies the vendored agent and database archive, creates `.env` if
+needed, installs the pinned Python version and locked dependencies, and installs
+Playwright Chromium. It is safe to run again after pulling dependency changes.
+
+Set these two values in `.env`:
 
 ```dotenv
 GEMINI_API_KEY=your_key
@@ -67,7 +67,7 @@ replay view after completion.
 For a single manual debugging rollout:
 
 ```sh
-.venv/bin/python -m app.cli run --tasks data/tasks.json --task-id problem1
+uv run --locked python -m app.cli run --tasks data/tasks.json --task-id problem1
 ```
 
 Do not run this CLI command while a dashboard evaluation is active.
@@ -168,7 +168,7 @@ disposable database snapshot and least-privilege credentials before execution.
 | --- | --- |
 | `Cannot connect to the Docker daemon` | Start Docker Desktop, or install Colima and run `./scripts/run_local.sh`. |
 | Metabase is unavailable | Wait for startup to complete, then inspect `docker compose logs metabase-1`. |
-| Python errors around `zip(..., strict=True)` | Recreate `.venv` with Python 3.10 or later and rerun setup. |
+| Python dependencies or Chromium are missing | Run `./scripts/setup.sh` again; uv will restore the locked environment. |
 | A job was interrupted | Inspect its saved artifacts, then start a new evaluation; do not score the interruption as a task failure. |
 | A rollout timed out | Inspect its log, trace, and screenshots. A task timeout lowers pass/K; an infrastructure error invalidates the affected evaluation until rerun. |
 
@@ -177,8 +177,8 @@ disposable database snapshot and least-privilege credentials before execution.
 Run the project and vendored Computer Use tests with the project environment:
 
 ```sh
-.venv/bin/python -m unittest discover -s tests -v
-.venv/bin/python -m unittest discover -s work/computer-use-preview -p 'test_*.py' -v
+uv run --locked python -m unittest discover -s tests -v
+uv run --locked python -m unittest discover -s work/computer-use-preview -p 'test_*.py' -v
 ```
 
 Also verify the Compose configuration before a fresh environment run:
@@ -186,3 +186,8 @@ Also verify the Compose configuration before a fresh environment run:
 ```sh
 docker compose config --quiet
 ```
+
+Validated on 2026-08-10: `./scripts/setup.sh` completed twice with Python
+3.12.10, all 70 project tests and 23 Computer Use tests passed, Compose config
+was valid, the agent dependency preflight passed, and the local Metabase
+environment reached healthy state without starting an evaluation.

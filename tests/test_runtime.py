@@ -300,14 +300,23 @@ exit 0
 
     def test_local_script_defaults_and_shutdown_contract(self):
         config_source = (ROOT / "app/config.py").read_text()
+        project_source = (ROOT / "pyproject.toml").read_text()
         runtime_source = (ROOT / "app/runtime.py").read_text()
+        setup_script = (ROOT / "scripts/setup.sh").read_text()
         run_script = (ROOT / "scripts/run_local.sh").read_text()
         stop_script = (ROOT / "scripts/stop_local.sh").read_text()
 
         self.assertIn('"METABASE_URLS", "http://localhost:33000"', config_source)
+        self.assertIn('"COMPUTER_USE_PYTHON", ".venv/bin/python"', config_source)
+        self.assertIn('requires-python = ">=3.10"', project_source)
+        self.assertFalse((ROOT / "requirements.txt").exists())
         self.assertIn("show_startup_output=True", runtime_source)
+        self.assertIn("uv sync --locked", setup_script)
+        self.assertIn("uv run --locked playwright install chromium", setup_script)
         self.assertIn("health endpoint is unavailable", run_script)
+        self.assertIn("uv run --locked uvicorn", run_script)
         self.assertIn("settings.shutdown_grace_seconds", stop_script)
+        self.assertIn("uv run --locked python", stop_script)
         self.assertIn("math.ceil", stop_script)
         self.assertLess(
             stop_script.index("job_manager.reconcile_interrupted_jobs()"),

@@ -5,13 +5,12 @@ PROJECT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$PROJECT_ROOT"
 . "$PROJECT_ROOT/scripts/docker_backend.sh"
 
-if [ -x .venv/bin/python ]; then
-  CONFIG_PYTHON=.venv/bin/python
-else
-  CONFIG_PYTHON=python3
+if ! command -v uv >/dev/null 2>&1; then
+  echo "uv is required. Install uv before running this script." >&2
+  exit 1
 fi
 minimum_shutdown_wait=$(
-  "$CONFIG_PYTHON" -c \
+  uv run --locked python -c \
     'import math; from app.config import settings; print(math.ceil(settings.shutdown_grace_seconds) + 5)'
 )
 DASHBOARD_SHUTDOWN_WAIT_SECONDS=${DASHBOARD_SHUTDOWN_WAIT_SECONDS:-$minimum_shutdown_wait}
@@ -44,10 +43,8 @@ for pid in $(lsof -tiTCP:8000 -sTCP:LISTEN 2>/dev/null || true); do
   esac
 done
 
-if [ -x .venv/bin/python ]; then
-  .venv/bin/python -c \
-    'from app.jobs import job_manager; job_manager.reconcile_interrupted_jobs()'
-fi
+uv run --locked python -c \
+  'from app.jobs import job_manager; job_manager.reconcile_interrupted_jobs()'
 
 launchctl remove com.openai.codex.colima-metabase-tunnel >/dev/null 2>&1 || true
 launchctl remove com.openai.rollout-studio.metabase-1 >/dev/null 2>&1 || true

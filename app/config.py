@@ -53,7 +53,7 @@ class Settings:
     root: Path = ROOT
     runs_dir: Path = ROOT / "runs"
     computer_use_dir: Path = ROOT / os.environ.get("COMPUTER_USE_DIR", "work/computer-use-preview")
-    computer_use_python: str = os.environ.get("COMPUTER_USE_PYTHON", "python3")
+    computer_use_python: str = os.environ.get("COMPUTER_USE_PYTHON", ".venv/bin/python")
     gemini_api_key: str = os.environ.get("GEMINI_API_KEY", "")
     computer_use_models: tuple[str, ...] = _csv_setting(
         "COMPUTER_USE_MODELS", DEFAULT_COMPUTER_USE_MODELS
