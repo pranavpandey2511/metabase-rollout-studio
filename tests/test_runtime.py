@@ -84,6 +84,28 @@ class RuntimeTests(unittest.TestCase):
         self.assertNotIn("METABASE_PASSWORD", run.call_args.kwargs["env"])
         self.assertEqual(run.call_args.kwargs["stdout"], subprocess.PIPE)
 
+    def test_explicit_startup_logging_inherits_terminal_output(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "ensure.sh"
+            script.write_text("#!/bin/sh\nexit 0\n")
+            test_settings = replace(
+                settings,
+                root=root,
+                metabase_urls=("http://localhost:43126",),
+                max_parallel_rollouts=1,
+                environment_start_script=script,
+            )
+            result = MagicMock(returncode=0, stdout=None)
+            with (
+                patch("app.runtime.settings", test_settings),
+                patch("app.runtime._is_healthy", side_effect=[False, False, True]),
+                patch("app.runtime.subprocess.run", return_value=result) as run,
+            ):
+                ensure_environment(1, show_startup_output=True)
+
+        self.assertIsNone(run.call_args.kwargs["stdout"])
+
     def test_auto_start_rejects_nonlocal_environment_urls(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
@@ -278,10 +300,12 @@ exit 0
 
     def test_local_script_defaults_and_shutdown_contract(self):
         config_source = (ROOT / "app/config.py").read_text()
+        runtime_source = (ROOT / "app/runtime.py").read_text()
         run_script = (ROOT / "scripts/run_local.sh").read_text()
         stop_script = (ROOT / "scripts/stop_local.sh").read_text()
 
         self.assertIn('"METABASE_URLS", "http://localhost:33000"', config_source)
+        self.assertIn("show_startup_output=True", runtime_source)
         self.assertIn("health endpoint is unavailable", run_script)
         self.assertIn("settings.shutdown_grace_seconds", stop_script)
         self.assertIn("math.ceil", stop_script)

@@ -111,6 +111,10 @@ does not touch a running job. The supplied database archive is restored only
 into a fresh `root_db`; a durable archive-hash marker makes later repair
 idempotent and prevents silent overwrite.
 
+When startup or repair is needed, `run_local.sh` streams backend selection and
+Docker Compose output to the terminal. If the environment is already healthy,
+it prints only the health confirmation because no containers are restarted.
+
 Every valid UI submission performs a cheap agent/dependency preflight and the
 same environment health check before creating the job. If the selected Docker
 engine, Compose services, or (for Colima) tunnel are down, they are repaired
@@ -346,7 +350,7 @@ The first suite covers the orchestrator, task parsing, grading, UI payloads,
 model validation, and cancellation. The second covers the native Computer Use
 tool configuration, blocked actions, and Playwright origin containment.
 
-Validation on 2026-08-10: 69 project tests and 22 adapter tests passed, along
+Validation on 2026-08-10: 70 project tests and 23 adapter tests passed, along
 with shell syntax, Python compilation, Docker Compose configuration, and diff
 checks. Lifecycle tests exercise both the Colima tunnel path and the direct
 Docker Desktop path with deterministic command stubs. A prior cold-start

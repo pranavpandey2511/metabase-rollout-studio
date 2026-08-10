@@ -110,7 +110,10 @@ def _startup_lock():
 
 
 def ensure_environment(
-    parallelism: int, *, reconcile_unused_slot: bool = False
+    parallelism: int,
+    *,
+    reconcile_unused_slot: bool = False,
+    show_startup_output: bool = False,
 ) -> None:
     """Ensure the requested local Metabase slots are reachable before a job starts."""
     urls = _required_urls(parallelism)
@@ -146,7 +149,7 @@ def ensure_environment(
                 [str(script)],
                 cwd=settings.root,
                 env=environment,
-                stdout=subprocess.PIPE,
+                stdout=None if show_startup_output else subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
                 timeout=settings.environment_start_timeout_seconds,
@@ -171,7 +174,11 @@ def ensure_environment(
 
 def main() -> None:
     capacity = min(settings.max_parallel_rollouts, len(settings.metabase_urls))
-    ensure_environment(capacity, reconcile_unused_slot=True)
+    ensure_environment(
+        capacity,
+        reconcile_unused_slot=True,
+        show_startup_output=True,
+    )
     print("Configured Metabase environment is healthy.")
 
 

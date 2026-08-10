@@ -78,9 +78,11 @@ class AgentProcessTests(unittest.TestCase):
         self.assertIn("Use only the visible Metabase UI", query)
         self.assertIn("do not attempt to use a shell", query)
         self.assertNotIn("test-password", " ".join(command))
+        redaction_payload = kwargs["env"]["ROLLOUT_REDACT_VALUES"]
+        self.assertNotIn("\0", redaction_payload)
         self.assertEqual(
-            kwargs["env"]["ROLLOUT_REDACT_VALUES"],
-            "person@example.test\0test-password\0test-key",
+            json.loads(redaction_payload),
+            ["person@example.test", "test-password", "test-key"],
         )
 
     def test_reconciliation_terminates_only_a_verified_recorded_agent(self):

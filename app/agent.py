@@ -223,14 +223,16 @@ def run_agent(
     environment["GEMINI_API_KEY"] = settings.gemini_api_key
     environment.setdefault("PLAYWRIGHT_HEADLESS", "true")
     environment["ROLLOUT_ARTIFACT_DIR"] = str(artifact_dir)
-    environment["ROLLOUT_REDACT_VALUES"] = "\0".join(
-        value
-        for value in (
-            settings.metabase_email,
-            settings.metabase_password,
-            settings.gemini_api_key,
-        )
-        if value
+    environment["ROLLOUT_REDACT_VALUES"] = json.dumps(
+        [
+            value
+            for value in (
+                settings.metabase_email,
+                settings.metabase_password,
+                settings.gemini_api_key,
+            )
+            if value
+        ]
     )
     environment["ROLLOUT_QUERY"] = query
     environment["ROLLOUT_NONINTERACTIVE"] = "true"

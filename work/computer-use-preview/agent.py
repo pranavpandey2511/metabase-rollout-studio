@@ -165,8 +165,17 @@ class BrowserAgent:
         self._trace_path.parent.mkdir(parents=True, exist_ok=True)
         event["timestamp"] = datetime.now(timezone.utc).isoformat()
         payload = json.dumps(event)
-        redacted_values = os.environ.get("ROLLOUT_REDACT_VALUES", "").split("\0")
-        for value in filter(None, redacted_values):
+        try:
+            redacted_values = json.loads(
+                os.environ.get("ROLLOUT_REDACT_VALUES", "[]")
+            )
+        except (json.JSONDecodeError, TypeError):
+            redacted_values = []
+        if not isinstance(redacted_values, list):
+            redacted_values = []
+        for value in redacted_values:
+            if not isinstance(value, str) or not value:
+                continue
             payload = payload.replace(value, "[REDACTED]")
         with self._trace_path.open("a") as trace_file:
             trace_file.write(payload + "\n")

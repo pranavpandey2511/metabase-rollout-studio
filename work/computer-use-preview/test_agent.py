@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import MagicMock, patch
 from google.genai import types
@@ -132,6 +135,19 @@ class TestBrowserAgent(unittest.TestCase):
 
         self.assertEqual(self.agent.get_text(candidate, thought=True), "private reasoning")
         self.assertEqual(self.agent.get_text(candidate, thought=False), '{"answer": 42}')
+
+    def test_trace_redaction_uses_os_safe_json_payload(self):
+        with TemporaryDirectory() as directory, patch.dict(
+            os.environ,
+            {"ROLLOUT_REDACT_VALUES": json.dumps(["secret-value"])},
+        ):
+            trace_path = Path(directory) / "trace.jsonl"
+            self.agent._trace_path = trace_path
+
+            self.agent._write_trace({"type": "test", "value": "secret-value"})
+
+            event = json.loads(trace_path.read_text())
+            self.assertEqual(event["value"], "[REDACTED]")
 
     @patch('agent.BrowserAgent.get_model_response')
     @patch('agent.BrowserAgent.handle_action')
