@@ -24,7 +24,6 @@ and deterministic grading results.
 - Python 3 and a working `python3` command.
 - The supplied Metabase archive at `data/metabase_envdata.sql`.
 - A Gemini API key and the supplied Metabase login credentials.
-- Git, used once to obtain the pinned Gemini `computer-use-preview` source.
 
 ## One-time setup
 
@@ -38,14 +37,16 @@ python3 -m venv .venv
 .venv/bin/playwright install chromium
 ```
 
-`setup_agent.sh` checks out upstream revision
-`77c9797e943aad63bbc963b7fd092a9e51c07863` and applies the tracked
-`patches/computer-use-preview.patch`. The patch is deliberately narrow: it
-removes the example custom function that breaks AFC, records rollout evidence,
-recovers malformed actions, contains Playwright to the configured origin, and
-keeps the credential-bearing query out of the process command line. The query
-environment value is removed before Chromium starts. Upstream Browserbase, CLI
-options, sampling parameters, and documentation stay intact.
+The modified Gemini Computer Use source is vendored in
+`work/computer-use-preview/`, based on upstream revision
+`77c9797e943aad63bbc963b7fd092a9e51c07863`. `setup_agent.sh` only verifies
+that source is present; it does not clone, patch, or otherwise modify it. The
+local changes remove the example custom function that breaks AFC, record
+rollout evidence, recover malformed actions, contain Playwright to the
+configured origin, and keep the credential-bearing query out of the process
+command line. The query environment value is removed before Chromium starts.
+Upstream Browserbase, CLI options, sampling parameters, and documentation stay
+intact.
 
 Edit `.env` and set the two secrets:
 
@@ -203,9 +204,20 @@ Each attempt contains:
 - `final_output.txt` — only the submitted final JSON answer.
 - `result.json` — status, selected model, duration, and grading evidence.
 
-Tasks with an `answer` are graded by exact JSON equality. The last submitted
-JSON value is compared with the golden answer; object-key order is ignored, but
-JSON types, field names, values, list membership, and list order must match.
+### Sharing a sample run
+
+Generated `runs/` artifacts remain ignored by default because their traces,
+logs, and screenshots can contain login information. After you manually finish
+a successful run, inspect every artifact and screenshot, then explicitly add
+only the reviewed evaluation with `git add -f runs/<job-id>`. The dashboard
+automatically discovers that checked-in artifact at startup, so an evaluator
+can inspect the same evaluation and replay without running Gemini. Do not add
+incomplete runs or any run whose screenshots reveal credentials.
+
+Tasks with an `answer` are graded by semantic JSON equality. The last submitted
+JSON value is compared with the golden answer; JSON objects are unordered, so
+key order is ignored at every depth. JSON types, field names, values, list
+membership, and list order must match.
 Duplicate keys and non-standard values such as `NaN` are rejected. Missing
 golden answers are marked `needs_review`; custom grader objects are rejected.
 
@@ -284,7 +296,7 @@ assignment.
 | A previous job says it was interrupted | Rollout Studio reconciles unfinished persisted jobs after a server restart. Inspect the saved evidence, then start a new evaluation. |
 | A K value is rejected | Set `MAX_ATTEMPTS_PER_PROBLEM` to at least that value in `.env`, restart with `./scripts/run_local.sh`, then refresh the dashboard. |
 | The total rollout count is rejected | Raise `MAX_ROLLOUTS_PER_EVALUATION` deliberately; the default allows the supplied 10 problems at K=10. |
-| AFC reports incompatible tools | Run `./scripts/setup_agent.sh`; preflight refuses an unpatched adapter. |
+| AFC reports incompatible tools | Run `./scripts/setup_agent.sh`; preflight refuses an incomplete vendored adapter. |
 | A run reaches the timeout | Inspect its `agent.log`, trace, and screenshots; it is recorded as a failed attempt and lowers passed/K. |
 
 ## Verification
@@ -300,8 +312,8 @@ The first suite covers the orchestrator, task parsing, grading, UI payloads,
 model validation, and cancellation. The second covers the native Computer Use
 tool configuration, blocked actions, and Playwright origin containment.
 
-Final validation on 2026-08-10: 67 project tests and 22 adapter tests passed;
-shell syntax, Python compilation, patch reproduction, and diff checks passed. A
+Final validation on 2026-08-10: 68 project tests and 22 adapter tests passed;
+shell syntax, Python compilation, and source checks passed. A
 cold-start dashboard submission with Colima stopped automatically restored the
 Docker path, reached healthy Metabase, ran Gemini, captured 8 aligned frames,
 and passed exact JSON grading in 65.25 seconds. Its temporary artifacts were

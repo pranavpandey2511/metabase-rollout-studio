@@ -8,5 +8,4 @@ __pycache__/
 runs/
 archive/
 data/metabase_envdata.sql
-work/computer-use-preview/
 postgres-data/

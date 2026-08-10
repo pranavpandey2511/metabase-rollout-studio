@@ -18,6 +18,7 @@ class AgentProcessTests(unittest.TestCase):
         test_settings = replace(
             settings,
             gemini_api_key="test-key",
+            metabase_email="person@example.test",
             metabase_password="test-password",
         )
 
@@ -46,10 +47,15 @@ class AgentProcessTests(unittest.TestCase):
         test_settings = replace(
             settings,
             gemini_api_key="test-key",
+            metabase_email="person@example.test",
             metabase_password="test-password",
         )
 
         with TemporaryDirectory() as directory, patch("app.agent.settings", test_settings):
+            process.communicate.return_value = (
+                "person@example.test test-password test-key agent output",
+                "",
+            )
             transcript = run_agent(
                 TaskSpec(id="one", prompt="Read the metric"),
                 "http://localhost:3000",
@@ -57,7 +63,7 @@ class AgentProcessTests(unittest.TestCase):
                 test_settings.default_computer_use_model,
             )
 
-        self.assertEqual(transcript, "agent output")
+        self.assertEqual(transcript, "[REDACTED] [REDACTED] [REDACTED] agent output")
         kwargs = mock_popen.call_args.kwargs
         self.assertEqual(kwargs["stdout"], subprocess.PIPE)
         self.assertEqual(kwargs["stderr"], subprocess.PIPE)
@@ -72,6 +78,10 @@ class AgentProcessTests(unittest.TestCase):
         self.assertIn("Use only the visible Metabase UI", query)
         self.assertIn("do not attempt to use a shell", query)
         self.assertNotIn("test-password", " ".join(command))
+        self.assertEqual(
+            kwargs["env"]["ROLLOUT_REDACT_VALUES"],
+            "person@example.test\0test-password\0test-key",
+        )
 
     def test_reconciliation_terminates_only_a_verified_recorded_agent(self):
         with TemporaryDirectory() as directory:

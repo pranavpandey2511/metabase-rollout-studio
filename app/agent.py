@@ -34,7 +34,11 @@ def _origin(url: str) -> tuple[str, str | None, int | None]:
 
 
 def _redact_secrets(text: str) -> str:
-    for secret in (settings.metabase_password, settings.gemini_api_key):
+    for secret in (
+        settings.metabase_email,
+        settings.metabase_password,
+        settings.gemini_api_key,
+    ):
         if secret:
             text = text.replace(secret, "[REDACTED]")
     return text
@@ -68,7 +72,7 @@ def validate_agent_configuration(model_name: str, *, check_dependencies: bool = 
     main_py = settings.computer_use_dir / "main.py"
     if not main_py.is_file():
         raise AgentConfigurationError(
-            f"Computer-use checkout not found at {settings.computer_use_dir}. "
+            f"Vendored Computer Use source not found at {settings.computer_use_dir}. "
             "Run ./scripts/setup_agent.sh or set COMPUTER_USE_DIR."
         )
     if not settings.gemini_api_key:
@@ -91,7 +95,7 @@ def validate_agent_configuration(model_name: str, *, check_dependencies: bool = 
                     "from pathlib import Path; "
                     "from playwright.sync_api import sync_playwright; "
                     "assert ROLLOUT_ADAPTER_VERSION == 1, "
-                    "'Rollout adapter patch is missing'; "
+                    "'Vendored rollout adapter is missing'; "
                     "p=sync_playwright().start(); "
                     "assert Path(p.chromium.executable_path).is_file(), "
                     "'Playwright Chromium is not installed'; "
@@ -219,7 +223,15 @@ def run_agent(
     environment["GEMINI_API_KEY"] = settings.gemini_api_key
     environment.setdefault("PLAYWRIGHT_HEADLESS", "true")
     environment["ROLLOUT_ARTIFACT_DIR"] = str(artifact_dir)
-    environment["ROLLOUT_REDACT_VALUES"] = settings.metabase_password
+    environment["ROLLOUT_REDACT_VALUES"] = "\0".join(
+        value
+        for value in (
+            settings.metabase_email,
+            settings.metabase_password,
+            settings.gemini_api_key,
+        )
+        if value
+    )
     environment["ROLLOUT_QUERY"] = query
     environment["ROLLOUT_NONINTERACTIVE"] = "true"
     environment["ROLLOUT_AUTO_CONFIRM_DISCARD"] = "true"

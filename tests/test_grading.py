@@ -18,6 +18,24 @@ class ExpectedAnswerGradingTests(unittest.TestCase):
         self.assertEqual(grade.method, "exact_final_json")
         self.assertTrue(all(check["passed"] for check in grade.checks))
 
+    def test_ignores_object_key_order_at_every_depth(self):
+        task = TaskSpec(
+            id="one",
+            prompt="Return nested data",
+            expected_answer={
+                "summary": {"count": 2, "labels": ["a", "b"]},
+                "status": "complete",
+            },
+        )
+
+        grade = grade_task(
+            task,
+            '{"status":"complete","summary":{"labels":["a","b"],"count":2}}',
+        )
+
+        self.assertEqual(grade.status, "passed")
+        self.assertTrue(grade.checks[-1]["passed"])
+
     def test_reports_matching_and_mismatching_fields(self):
         task = TaskSpec(
             id="one",
