@@ -4,10 +4,31 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 import json
+import re
 
 
 class TaskFileError(ValueError):
     pass
+
+
+TASK_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+
+
+class InvalidJSONConstant(ValueError):
+    pass
+
+
+def _reject_json_constant(value: str) -> object:
+    raise InvalidJSONConstant(value)
+
+
+def _object_without_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    value: dict[str, object] = {}
+    for key, item in pairs:
+        if key in value:
+            raise TaskFileError(f"duplicate JSON key {key!r}")
+        value[key] = item
+    return value
 
 
 @dataclass(frozen=True)
@@ -62,8 +83,12 @@ def _expected_answer_from(raw: Any, task_id: str) -> object | None:
         return None
     if isinstance(raw, str):
         try:
-            return json.loads(raw)
-        except json.JSONDecodeError as exc:
+            return json.loads(
+                raw,
+                object_pairs_hook=_object_without_duplicate_keys,
+                parse_constant=_reject_json_constant,
+            )
+        except (json.JSONDecodeError, InvalidJSONConstant) as exc:
             raise TaskFileError(f"task {task_id}: answer must be valid JSON") from exc
     if isinstance(raw, (dict, list, str, int, float, bool)):
         return raw
@@ -83,6 +108,10 @@ def parse_tasks(payload: object) -> list[TaskSpec]:
         task_id = str(raw.get("id", "")).strip()
         if not task_id:
             raise TaskFileError(f"task at index {index} is missing id")
+        if not TASK_ID_PATTERN.fullmatch(task_id):
+            raise TaskFileError(
+                f"task {task_id!r}: id may contain only letters, numbers, dots, underscores, and hyphens"
+            )
         if task_id in ids:
             raise TaskFileError(f"duplicate task id {task_id!r}")
         ids.add(task_id)
@@ -92,6 +121,10 @@ def parse_tasks(payload: object) -> list[TaskSpec]:
         if raw.get("grader") is not None:
             raise TaskFileError(
                 f"task {task_id}: custom graders are outside this read-only MVP; supply answer instead"
+            )
+        if "answer" in raw and raw["answer"] is None:
+            raise TaskFileError(
+                f"task {task_id}: answer cannot be null; omit it to request manual review"
             )
         expected_answer = _expected_answer_from(raw.get("answer"), task_id)
         tasks.append(
@@ -107,6 +140,16 @@ def parse_tasks(payload: object) -> list[TaskSpec]:
 
 def load_tasks(path: Path) -> list[TaskSpec]:
     try:
-        return parse_tasks(json.loads(path.read_text()))
+        return parse_tasks(
+            json.loads(
+                path.read_text(),
+                object_pairs_hook=_object_without_duplicate_keys,
+                parse_constant=_reject_json_constant,
+            )
+        )
+    except UnicodeDecodeError as exc:
+        raise TaskFileError("task file must be UTF-8 encoded JSON") from exc
     except json.JSONDecodeError as exc:
         raise TaskFileError(f"invalid JSON: {exc.msg}") from exc
+    except InvalidJSONConstant as exc:
+        raise TaskFileError(f"invalid JSON number: {exc}") from exc

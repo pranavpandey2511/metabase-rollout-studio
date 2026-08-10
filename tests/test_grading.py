@@ -68,6 +68,37 @@ class ExpectedAnswerGradingTests(unittest.TestCase):
 
         self.assertEqual(output, '{\n  "count": 2\n}')
 
+    def test_boolean_does_not_equal_number(self):
+        task = TaskSpec(id="one", prompt="Return the count", expected_answer={"count": 1})
+
+        grade = grade_task(task, '{"count": true}')
+
+        self.assertEqual(grade.status, "failed")
+
+    def test_duplicate_object_keys_are_not_accepted(self):
+        task = TaskSpec(id="one", prompt="Return the count", expected_answer={"count": 2})
+
+        grade = grade_task(task, '{"count": 1, "count": 2}')
+
+        self.assertEqual(grade.status, "failed")
+        self.assertFalse(grade.checks[0]["passed"])
+
+    def test_invalid_outer_json_cannot_pass_via_a_valid_nested_object(self):
+        task = TaskSpec(id="one", prompt="Return the count", expected_answer={"count": 2})
+
+        grade = grade_task(task, '{"answer":{"count":2},"answer":{"count":3}}')
+
+        self.assertEqual(grade.status, "failed")
+        self.assertFalse(grade.checks[0]["passed"])
+
+    def test_nonstandard_json_numbers_are_not_accepted(self):
+        task = TaskSpec(id="one", prompt="Return the count", expected_answer={"count": 2})
+
+        grade = grade_task(task, '{"count": NaN}')
+
+        self.assertEqual(grade.status, "failed")
+        self.assertFalse(grade.checks[0]["passed"])
+
 
 if __name__ == "__main__":
     unittest.main()

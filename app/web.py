@@ -1,25 +1,33 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 import json
-import shutil
 from pathlib import Path
-from urllib.error import URLError
-from urllib.parse import quote
-from urllib.request import urlopen
+from typing import Annotated
+from urllib.parse import quote, urlsplit
 from uuid import uuid4
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from .agent import AgentConfigurationError, validate_agent_configuration
 from .config import settings
 from .grading import submitted_answer_text
-from .jobs import job_manager
+from .jobs import JobConflictError, job_manager
 from .models import TaskFileError, load_tasks
+from .runtime import EnvironmentUnavailable, ensure_environment
 from .ui import INDEX_HTML
 
 
-app = FastAPI(title="Metabase Rollout Studio")
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    job_manager.reconcile_interrupted_jobs()
+    yield
+    job_manager.shutdown(settings.shutdown_grace_seconds)
+
+
+app = FastAPI(title="Metabase Rollout Studio", lifespan=lifespan)
 app.mount("/runs", StaticFiles(directory=settings.runs_dir), name="runs")
 
 
@@ -40,10 +48,12 @@ def _read_json(path: Path) -> dict[str, object] | None:
 
 
 def _read_json_lines(path: Path) -> list[dict[str, object]]:
-    if not path.exists():
+    try:
+        lines = path.read_text().splitlines()
+    except OSError:
         return []
     records: list[dict[str, object]] = []
-    for line in path.read_text().splitlines():
+    for line in lines:
         try:
             item = json.loads(line)
         except json.JSONDecodeError:
@@ -57,7 +67,20 @@ def _run_summary(result_path: Path) -> dict[str, object] | None:
     result = _read_json(result_path)
     if result is None:
         return None
-    artifact_dir = str(result.get("artifact_dir") or result_path.parent.relative_to(settings.runs_dir))
+    task_id = result.get("task_id")
+    attempt = result.get("attempt")
+    status = result.get("status")
+    if (
+        not isinstance(task_id, str)
+        or not task_id
+        or not isinstance(attempt, int)
+        or isinstance(attempt, bool)
+        or attempt < 1
+        or status
+        not in {"running", "passed", "failed", "needs_review", "error", "cancelled"}
+    ):
+        return None
+    artifact_dir = str(result_path.parent.relative_to(settings.runs_dir))
     result["artifact_dir"] = artifact_dir
     result["screenshot_count"] = len(list(result_path.parent.glob("screenshots/*.png")))
     result["has_trace"] = (result_path.parent / "trace.jsonl").exists()
@@ -78,24 +101,51 @@ def _human_title(value: str) -> str:
     return " ".join(word.capitalize() for word in words) or "Untitled evaluation"
 
 
+def _require_local_browser_origin(origin: str | None) -> None:
+    if origin is None:
+        return
+    parsed = urlsplit(origin)
+    try:
+        port = parsed.port
+    except ValueError:
+        port = None
+    if (
+        parsed.scheme != "http"
+        or parsed.hostname not in {"localhost", "127.0.0.1"}
+        or port != 8000
+    ):
+        raise HTTPException(403, "Evaluation creation is limited to the local dashboard")
+
+
+def _problem_outcome(
+    *,
+    completed: bool,
+    evaluation_status: str,
+    passed: int,
+    errors: int,
+    cancelled: int,
+    needs_review: int,
+    attempts: int,
+) -> str:
+    if errors or (not completed and evaluation_status == "error"):
+        return "error"
+    if cancelled or (not completed and evaluation_status == "cancelled"):
+        return "cancelled"
+    if needs_review:
+        return "needs_review"
+    if not completed:
+        return "running"
+    if passed == attempts:
+        return "passed"
+    if passed == 0:
+        return "failed"
+    return "partial"
+
+
 def _evaluation_metadata(evaluation_id: str) -> dict[str, object]:
     job = _read_json(settings.runs_dir / evaluation_id / "job.json") or {}
     if job:
         return job
-    if evaluation_id == "cli":
-        try:
-            tasks = load_tasks(settings.root / "data" / "tasks.json")
-        except (OSError, TaskFileError):
-            tasks = []
-        return {
-            "id": "cli",
-            "title": "Metabase Sample Data",
-            "source_filename": "tasks.json",
-            "status": "complete",
-            "attempts": 5,
-            "model_name": settings.default_computer_use_model,
-            "problems": [{"id": task.id, "prompt": task.prompt} for task in tasks],
-        }
     return {"id": evaluation_id, "title": _human_title(evaluation_id), "problems": []}
 
 
@@ -115,24 +165,44 @@ def _evaluation_payloads() -> list[dict[str, object]]:
             if isinstance(problem, dict) and problem.get("id") is not None
         }
         problem_ids = set(prompts) | {str(run.get("task_id")) for run in evaluation_runs}
-        expected_attempts = int(metadata.get("attempts") or 1)
+        configured_attempts = metadata.get("attempts")
+        expected_attempts = (
+            configured_attempts
+            if isinstance(configured_attempts, int)
+            and not isinstance(configured_attempts, bool)
+            and configured_attempts > 0
+            else max((int(run["attempt"]) for run in evaluation_runs), default=1)
+        )
+        evaluation_status = str(metadata.get("status") or "complete")
         problems: list[dict[str, object]] = []
         for problem_id in sorted(problem_ids):
-            problem_runs = [run for run in evaluation_runs if str(run.get("task_id")) == problem_id]
+            problem_runs = sorted(
+                (
+                    run
+                    for run in evaluation_runs
+                    if str(run.get("task_id")) == problem_id
+                ),
+                key=lambda run: int(run.get("attempt") or 0),
+            )
             passed = sum(run.get("status") == "passed" for run in problem_runs)
-            failed = sum(run.get("status") in {"failed", "error"} for run in problem_runs)
+            failed = sum(run.get("status") == "failed" for run in problem_runs)
+            errors = sum(run.get("status") == "error" for run in problem_runs)
             needs_review = sum(run.get("status") == "needs_review" for run in problem_runs)
-            completed = len(problem_runs) >= expected_attempts
+            cancelled = sum(run.get("status") == "cancelled" for run in problem_runs)
+            completed = (
+                len(problem_runs) >= expected_attempts
+                and all(run.get("status") != "running" for run in problem_runs)
+            )
             pass_k = passed / expected_attempts if expected_attempts else 0
             pass_k_percent = round(pass_k * 100)
-            outcome_status = (
-                "running"
-                if not completed
-                else "passed"
-                if passed == expected_attempts
-                else "failed"
-                if passed == 0
-                else "partial"
+            outcome_status = _problem_outcome(
+                completed=completed,
+                evaluation_status=evaluation_status,
+                passed=passed,
+                errors=errors,
+                cancelled=cancelled,
+                needs_review=needs_review,
+                attempts=expected_attempts,
             )
             problems.append(
                 {
@@ -141,7 +211,9 @@ def _evaluation_payloads() -> list[dict[str, object]]:
                     "run_count": len(problem_runs),
                     "passed": passed,
                     "failed": failed,
+                    "errors": errors,
                     "needs_review": needs_review,
+                    "cancelled": cancelled,
                     "expected_attempts": expected_attempts,
                     "k": expected_attempts,
                     "pass_k": round(pass_k, 4),
@@ -156,6 +228,13 @@ def _evaluation_payloads() -> list[dict[str, object]]:
         failed_problems = sum(problem["outcome_status"] == "failed" for problem in problems)
         running_problems = sum(problem["outcome_status"] == "running" for problem in problems)
         partial_problems = sum(problem["outcome_status"] == "partial" for problem in problems)
+        error_problems = sum(problem["outcome_status"] == "error" for problem in problems)
+        review_problems = sum(
+            problem["outcome_status"] == "needs_review" for problem in problems
+        )
+        cancelled_problems = sum(
+            problem["outcome_status"] == "cancelled" for problem in problems
+        )
         mean_pass_k_percent = (
             round(sum(problem["pass_k_percent"] for problem in problems) / len(problems))
             if problems
@@ -175,7 +254,9 @@ def _evaluation_payloads() -> list[dict[str, object]]:
                     (run.get("model_name") for run in evaluation_runs if run.get("model_name")),
                     "Legacy / unknown",
                 ),
-                "status": metadata.get("status") or "complete",
+                "status": evaluation_status,
+                "controllable": metadata.get("controllable") is not False,
+                "error": metadata.get("error"),
                 "created_at": metadata.get("created_at"),
                 "updated_at": latest,
                 "problem_count": len(problems),
@@ -183,12 +264,17 @@ def _evaluation_payloads() -> list[dict[str, object]]:
                 "failed_problem_count": failed_problems,
                 "running_problem_count": running_problems,
                 "partial_problem_count": partial_problems,
+                "error_problem_count": error_problems,
+                "needs_review_problem_count": review_problems,
+                "cancelled_problem_count": cancelled_problems,
                 "k": expected_attempts,
                 "mean_pass_k_percent": mean_pass_k_percent,
                 "run_count": len(evaluation_runs),
                 "passed": passed,
-                "failed": sum(run.get("status") in {"failed", "error"} for run in evaluation_runs),
+                "failed": sum(run.get("status") == "failed" for run in evaluation_runs),
+                "errors": sum(run.get("status") == "error" for run in evaluation_runs),
                 "needs_review": sum(run.get("status") == "needs_review" for run in evaluation_runs),
+                "cancelled": sum(run.get("status") == "cancelled" for run in evaluation_runs),
                 "pass_rate": mean_pass_k_percent,
                 "problems": problems,
             }
@@ -217,9 +303,11 @@ def get_config() -> dict[str, object]:
         "computer_use_models": settings.computer_use_models,
         "default_computer_use_model": settings.default_computer_use_model,
         "max_attempts_per_problem": settings.max_attempts_per_problem,
+        "max_rollouts_per_evaluation": settings.max_rollouts_per_evaluation,
         "max_parallel_rollouts": min(
             settings.max_parallel_rollouts, len(settings.metabase_urls)
         ),
+        "auto_start_environment": settings.auto_start_environment,
     }
 
 
@@ -255,7 +343,10 @@ def get_run(artifact_dir: str) -> dict[str, object]:
             observed_thinking
             or "The agent did not record a separate observation after this screenshot."
         )
-        for action in turn.get("actions", []):
+        actions = turn.get("actions")
+        if not isinstance(actions, list):
+            continue
+        for action in actions:
             if not isinstance(action, dict):
                 continue
             context = {"thinking": thinking, "action": action}
@@ -306,34 +397,54 @@ def create_job(
     parallelism: int = Form(...),
     model_name: str = Form(...),
     title: str | None = Form(None),
+    origin: Annotated[str | None, Header()] = None,
 ) -> dict[str, object]:
-    if not tasks_file.filename or not tasks_file.filename.endswith(".json"):
+    _require_local_browser_origin(origin)
+    if not tasks_file.filename or not tasks_file.filename.lower().endswith(".json"):
         raise HTTPException(400, "Upload a .json task file")
     staging_dir = settings.runs_dir / "uploads"
     staging_dir.mkdir(exist_ok=True)
     staged = staging_dir / f"upload-{uuid4().hex}.json"
-    with staged.open("wb") as output:
-        shutil.copyfileobj(tasks_file.file, output)
     try:
-        tasks = load_tasks(staged)
-    except TaskFileError as exc:
-        staged.unlink(missing_ok=True)
-        raise HTTPException(400, str(exc)) from exc
-    payload = _read_json(staged) or {}
-    staged.unlink(missing_ok=True)
-    requested_title = title or (payload.get("title") if isinstance(payload.get("title"), str) else None)
-    capacity = min(parallelism, settings.max_parallel_rollouts, len(settings.metabase_urls))
-    for environment_url in settings.metabase_urls[:capacity]:
+        total = 0
+        with staged.open("wb") as output:
+            while chunk := tasks_file.file.read(64 * 1024):
+                total += len(chunk)
+                if total > settings.max_task_file_bytes:
+                    raise HTTPException(
+                        413,
+                        f"Task file exceeds the {settings.max_task_file_bytes}-byte limit",
+                    )
+                output.write(chunk)
         try:
-            with urlopen(f"{environment_url}/api/health", timeout=5) as response:
-                healthy = response.status == 200 and b'"status":"ok"' in response.read().replace(b" ", b"")
-        except (OSError, URLError):
-            healthy = False
-        if not healthy:
-            raise HTTPException(
-                503,
-                f"Metabase is not ready at {environment_url}. Start it with ./scripts/run_local.sh, then retry.",
-            )
+            tasks = load_tasks(staged)
+        except TaskFileError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        payload = _read_json(staged) or {}
+    finally:
+        staged.unlink(missing_ok=True)
+    rollout_count = len(tasks) * attempts
+    if attempts > 0 and rollout_count > settings.max_rollouts_per_evaluation:
+        raise HTTPException(
+            400,
+            f"Evaluation requests {rollout_count} rollouts; the configured limit is "
+            f"{settings.max_rollouts_per_evaluation}",
+        )
+    requested_title = title or (payload.get("title") if isinstance(payload.get("title"), str) else None)
+    try:
+        capacity = job_manager.validate_request(attempts, parallelism, model_name)
+    except JobConflictError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    try:
+        validate_agent_configuration(model_name)
+    except AgentConfigurationError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    try:
+        ensure_environment(capacity)
+    except EnvironmentUnavailable as exc:
+        raise HTTPException(503, str(exc)) from exc
     try:
         job = job_manager.start(
             tasks,
@@ -343,6 +454,8 @@ def create_job(
             source_filename=tasks_file.filename,
             model_name=model_name,
         )
+    except JobConflictError as exc:
+        raise HTTPException(409, str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     return job.public()
@@ -352,6 +465,10 @@ def create_job(
 def get_job(job_id: str) -> dict[str, object]:
     job = job_manager.get(job_id)
     if job is None:
+        persisted = _read_json(settings.runs_dir / job_id / "job.json")
+        if persisted is not None:
+            persisted["expired"] = True
+            return persisted
         # A browser tab can outlive the in-memory job manager after a server
         # restart. Return a terminal state so both old and new UI pollers stop.
         return {

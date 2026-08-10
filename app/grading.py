@@ -5,6 +5,53 @@ import json
 from .models import Grade, TaskSpec
 
 
+class DuplicateKeyError(ValueError):
+    pass
+
+
+class InvalidJSONConstant(ValueError):
+    pass
+
+
+def _reject_json_constant(value: str) -> object:
+    raise InvalidJSONConstant(value)
+
+
+def _object_without_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    value: dict[str, object] = {}
+    for key, item in pairs:
+        if key in value:
+            raise DuplicateKeyError(key)
+        value[key] = item
+    return value
+
+
+STRICT_DECODER = json.JSONDecoder(
+    object_pairs_hook=_object_without_duplicate_keys,
+    parse_constant=_reject_json_constant,
+)
+
+
+def _json_equal(left: object, right: object) -> bool:
+    """Compare JSON values without Python's bool/int equality ambiguity."""
+    if isinstance(left, bool) or isinstance(right, bool):
+        return type(left) is type(right) and left == right
+    if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+        return left == right
+    if type(left) is not type(right):
+        return False
+    if isinstance(left, dict):
+        return left.keys() == right.keys() and all(
+            _json_equal(left[key], right[key]) for key in left
+        )
+    if isinstance(left, list):
+        return len(left) == len(right) and all(
+            _json_equal(left_item, right_item)
+            for left_item, right_item in zip(left, right, strict=True)
+        )
+    return left == right
+
+
 def grade_task(task: TaskSpec, final_answer: str) -> Grade:
     if task.expected_answer is None:
         return Grade(
@@ -23,34 +70,65 @@ def grade_task(task: TaskSpec, final_answer: str) -> Grade:
 
 
 def _json_candidates(final_answer: str) -> list[object]:
-    candidates: list[object] = []
     stripped = final_answer.strip()
     if stripped:
         try:
-            whole_value = json.loads(stripped)
-            if not isinstance(whole_value, (dict, list)):
-                candidates.append(whole_value)
-        except json.JSONDecodeError:
+            return [STRICT_DECODER.decode(stripped)]
+        except (json.JSONDecodeError, DuplicateKeyError, InvalidJSONConstant):
             pass
-    decoder = json.JSONDecoder()
-    located: list[tuple[int, int, object]] = []
-    for index, character in enumerate(final_answer):
-        if character not in "[{":
+
+    candidates: list[object] = []
+    index = 0
+    while index < len(final_answer):
+        if final_answer[index] not in "[{":
+            index += 1
             continue
         try:
-            value, end = decoder.raw_decode(final_answer[index:])
-        except json.JSONDecodeError:
+            value, end = STRICT_DECODER.raw_decode(final_answer[index:])
+        except (json.JSONDecodeError, DuplicateKeyError, InvalidJSONConstant):
+            # Skip the complete balanced structure when it is invalid. Without
+            # this, a valid nested object inside duplicate-key/NaN JSON could be
+            # mistaken for the submitted answer.
+            end = _balanced_json_end(final_answer, index)
+            index = end if end is not None else index + 1
             continue
         if isinstance(value, (dict, list)):
-            located.append((index, index + end, value))
-    # Later values are treated as more final. For equal end positions, prefer
-    # the outermost structure instead of an object nested inside it.
-    candidates.extend(value for _, _, value in sorted(located, key=lambda item: (item[1], -item[0])))
+            candidates.append(value)
+        index += end
+
     unique: list[object] = []
     for candidate in candidates:
-        if candidate not in unique:
+        if not any(_json_equal(candidate, existing) for existing in unique):
             unique.append(candidate)
     return unique
+
+
+def _balanced_json_end(text: str, start: int) -> int | None:
+    """Return the end of a bracketed JSON-like span without parsing its values."""
+    stack: list[str] = []
+    in_string = False
+    escaped = False
+    pairs = {"}": "{", "]": "["}
+    for index in range(start, len(text)):
+        character = text[index]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+            continue
+        if character == '"':
+            in_string = True
+        elif character in "[{":
+            stack.append(character)
+        elif character in "}]":
+            if not stack or stack.pop() != pairs[character]:
+                return None
+            if not stack:
+                return index + 1
+    return None
 
 
 def submitted_answer_text(final_answer: str) -> str:
@@ -87,7 +165,7 @@ def _field_checks(expected: object, actual: object | None) -> list[dict[str, obj
             })
             continue
         actual_value = actual[key]
-        matches = actual_value == expected_value
+        matches = _json_equal(actual_value, expected_value)
         checks.append({
             "name": f"Field {key!r}",
             "passed": matches,
@@ -109,7 +187,7 @@ def _field_checks(expected: object, actual: object | None) -> list[dict[str, obj
 def _grade_expected_answer(expected: object, final_answer: str) -> Grade:
     candidates = _json_candidates(final_answer)
     actual = candidates[-1] if candidates else None
-    passed = actual == expected
+    passed = actual is not None and _json_equal(actual, expected)
     format_ok = bool(candidates)
     evidence = (
         "The last JSON value in the final answer exactly matched the golden answer."

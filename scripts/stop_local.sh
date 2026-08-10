@@ -4,30 +4,57 @@ set -eu
 PROJECT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$PROJECT_ROOT"
 
-launchctl remove com.openai.codex.colima-metabase-tunnel >/dev/null 2>&1 || true
+if [ -x .venv/bin/python ]; then
+  CONFIG_PYTHON=.venv/bin/python
+else
+  CONFIG_PYTHON=python3
+fi
+minimum_shutdown_wait=$(
+  "$CONFIG_PYTHON" -c \
+    'import math; from app.config import settings; print(math.ceil(settings.shutdown_grace_seconds) + 5)'
+)
+DASHBOARD_SHUTDOWN_WAIT_SECONDS=${DASHBOARD_SHUTDOWN_WAIT_SECONDS:-$minimum_shutdown_wait}
+case "$DASHBOARD_SHUTDOWN_WAIT_SECONDS" in
+  ''|*[!0-9]*)
+    echo "DASHBOARD_SHUTDOWN_WAIT_SECONDS must be a positive integer." >&2
+    exit 1
+    ;;
+esac
+if [ "$DASHBOARD_SHUTDOWN_WAIT_SECONDS" -lt "$minimum_shutdown_wait" ]; then
+  DASHBOARD_SHUTDOWN_WAIT_SECONDS=$minimum_shutdown_wait
+fi
 
 for pid in $(lsof -tiTCP:8000 -sTCP:LISTEN 2>/dev/null || true); do
   command=$(ps -p "$pid" -o command= 2>/dev/null || true)
   case "$command" in
-    *"uvicorn app.web:app"*) kill -TERM "$pid" 2>/dev/null || true ;;
+    *"uvicorn app.web:app"*)
+      kill -TERM "$pid" 2>/dev/null || true
+      elapsed=0
+      while kill -0 "$pid" 2>/dev/null; do
+        [ "$elapsed" -ge "$DASHBOARD_SHUTDOWN_WAIT_SECONDS" ] && break
+        sleep 1
+        elapsed=$((elapsed + 1))
+      done
+      if kill -0 "$pid" 2>/dev/null; then
+        echo "Rollout Studio did not stop within ${DASHBOARD_SHUTDOWN_WAIT_SECONDS}s; containers were left running." >&2
+        exit 1
+      fi
+      ;;
   esac
 done
 
+if [ -x .venv/bin/python ]; then
+  .venv/bin/python -c \
+    'from app.jobs import job_manager; job_manager.reconcile_interrupted_jobs()'
+fi
+
+launchctl remove com.openai.codex.colima-metabase-tunnel >/dev/null 2>&1 || true
+launchctl remove com.openai.rollout-studio.metabase-1 >/dev/null 2>&1 || true
+launchctl remove com.openai.rollout-studio.metabase-2 >/dev/null 2>&1 || true
+
 if colima status >/dev/null 2>&1; then
-  docker context use colima >/dev/null 2>&1 || true
-  if docker info >/dev/null 2>&1; then
-    docker compose --profile pool2 down --remove-orphans
-  else
-    echo "Host Docker socket is unavailable; removing project containers inside Colima..."
-    colima ssh -- docker rm -f \
-      rl-environment-hackathon-india-mots-today-metabase-1-1 \
-      rl-environment-hackathon-india-mots-today-bootstrap-1-1 \
-      rl-environment-hackathon-india-mots-today-db-1-1 \
-      rl-environment-hackathon-india-mots-today-metabase-2-1 \
-      rl-environment-hackathon-india-mots-today-bootstrap-2-1 \
-      rl-environment-hackathon-india-mots-today-db-2-1 >/dev/null 2>&1 || true
-    colima ssh -- docker network rm \
-      rl-environment-hackathon-india-mots-today_default >/dev/null 2>&1 || true
+  if docker --context colima info >/dev/null 2>&1; then
+    docker --context colima compose --profile pool2 down --remove-orphans
   fi
   colima stop
 fi

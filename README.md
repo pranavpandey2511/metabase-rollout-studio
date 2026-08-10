@@ -24,8 +24,7 @@ and deterministic grading results.
 - Python 3 and a working `python3` command.
 - The supplied Metabase archive at `data/metabase_envdata.sql`.
 - A Gemini API key and the supplied Metabase login credentials.
-- The Gemini `computer-use-preview` checkout at
-  `work/computer-use-preview` (it is already present in this workspace).
+- Git, used once to obtain the pinned Gemini `computer-use-preview` source.
 
 ## One-time setup
 
@@ -33,10 +32,20 @@ From the repository root:
 
 ```sh
 cp .env.example .env
+./scripts/setup_agent.sh
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt -r work/computer-use-preview/requirements.txt
 .venv/bin/playwright install chromium
 ```
+
+`setup_agent.sh` checks out upstream revision
+`77c9797e943aad63bbc963b7fd092a9e51c07863` and applies the tracked
+`patches/computer-use-preview.patch`. The patch is deliberately narrow: it
+removes the example custom function that breaks AFC, records rollout evidence,
+recovers malformed actions, contains Playwright to the configured origin, and
+keeps the credential-bearing query out of the process command line. The query
+environment value is removed before Chromium starts. Upstream Browserbase, CLI
+options, sampling parameters, and documentation stay intact.
 
 Edit `.env` and set the two secrets:
 
@@ -53,7 +62,9 @@ COMPUTER_USE_PYTHON=.venv/bin/python
 METABASE_URLS=http://localhost:33000
 MAX_PARALLEL_ROLLOUTS=1
 MAX_ATTEMPTS_PER_PROBLEM=10
+MAX_ROLLOUTS_PER_EVALUATION=100
 ROLLOUT_TIMEOUT_SECONDS=600
+AUTO_START_ENVIRONMENT=true
 ```
 
 `MAX_ATTEMPTS_PER_PROBLEM` is the maximum K the dashboard accepts. The default
@@ -66,9 +77,22 @@ ceiling; both backend validation and the displayed UI maximum use this setting.
 ./scripts/run_local.sh
 ```
 
-The script starts or repairs Colima, chooses the `colima` Docker context, starts
-PostgreSQL, restores the supplied archive, starts Metabase, waits for
-`/api/health`, creates the stable tunnel, and starts Rollout Studio.
+The script starts or repairs Colima without changing the global Docker context,
+starts PostgreSQL and Metabase, waits for `/api/health`, creates the stable
+tunnel, and starts Rollout Studio. Running it again while Rollout Studio is
+already active returns immediately and does not touch Colima or a running job.
+The supplied database archive is restored only into a fresh `root_db`; a durable
+archive-hash marker makes later repair idempotent and prevents silent overwrite.
+
+Every valid UI submission performs a cheap agent/dependency preflight and the
+same environment health check before creating the job. If Colima, Docker, the
+Compose services, or the tunnel are down, they are repaired automatically when
+`AUTO_START_ENVIRONMENT=true`. Invalid uploads never start infrastructure or
+consume Gemini quota.
+
+Rollout Studio itself must be running to receive an upload. Automatic repair
+starts Colima, Docker, Compose, Metabase, and the tunnel after the dashboard
+receives a valid submission; it cannot start a dashboard process that is down.
 
 Open `http://127.0.0.1:8000` and leave the terminal running while an evaluation
 is active. Do **not** start Uvicorn with `--reload`: a reload loses the active,
@@ -121,6 +145,19 @@ The response contains the job `id`. Monitor it with:
 curl -sS http://127.0.0.1:8000/api/jobs/JOB_ID
 ```
 
+For a single manual rollout without the dashboard, the retained CLI uses the
+same preflight, automatic environment startup, runner, artifacts, and grading:
+
+```sh
+.venv/bin/python -m app.cli run --tasks data/tasks.json --task-id problem1
+```
+
+Each CLI invocation receives a unique evaluation ID, so rerunning the same task
+does not overwrite or collide with earlier evidence. Treat it as a manual debug
+path: do not run it while a dashboard evaluation is active, and stop it with
+Ctrl-C. The dashboard intentionally does not offer a stop button for a process
+it does not own.
+
 ## Stop commands
 
 - **Stop one evaluation:** open it in the dashboard and click **Stop
@@ -145,7 +182,7 @@ curl -sS http://127.0.0.1:8000/api/jobs/JOB_ID
   discard the seeded volume and restore it from the archive on the next start:
 
   ```sh
-  docker compose --profile pool2 down -v --remove-orphans
+  docker --context colima compose --profile pool2 down -v --remove-orphans
   colima stop
   ```
 
@@ -166,10 +203,11 @@ Each attempt contains:
 - `final_output.txt` — only the submitted final JSON answer.
 - `result.json` — status, selected model, duration, and grading evidence.
 
-Tasks with an `answer` are graded by exact JSON equality. The final structured
+Tasks with an `answer` are graded by exact JSON equality. The last submitted
 JSON value is compared with the golden answer; object-key order is ignored, but
-field names, values, list membership, and list order must match. Missing golden
-answers are marked `needs_review`; custom grader objects are rejected.
+JSON types, field names, values, list membership, and list order must match.
+Duplicate keys and non-standard values such as `NaN` are rejected. Missing
+golden answers are marked `needs_review`; custom grader objects are rejected.
 
 For each problem, the dashboard displays K and the observed `pass^k` value:
 
@@ -178,7 +216,11 @@ passed attempts / K
 ```
 
 The evaluation-level value is the mean of the per-problem percentages. No
-arbitrary threshold turns a problem into a pass/fail verdict.
+arbitrary threshold turns a problem into a pass/fail verdict. A model timeout or
+missing final answer is a failed attempt and therefore lowers passed/K, matching
+the assignment's treatment of stuck rollouts. API, browser-process, Docker, and
+harness failures are infrastructure errors; an evaluation containing those
+errors is invalid until the affected attempts are rerun.
 
 ## Configuration
 
@@ -187,24 +229,63 @@ arbitrary threshold turns a problem into a pass/fail verdict.
 | `DEFAULT_COMPUTER_USE_MODEL` | Preselected model in the dashboard | `gemini-3.6-flash` |
 | `COMPUTER_USE_MODELS` | Comma-separated model allowlist | Documented Computer Use models |
 | `MAX_ATTEMPTS_PER_PROBLEM` | Maximum selectable K | `10` |
+| `MAX_ROLLOUTS_PER_EVALUATION` | Safety ceiling for problems × K | `100` |
 | `MAX_PARALLEL_ROLLOUTS` | Maximum simultaneous attempts | `1` |
 | `METABASE_URLS` | Comma-separated isolated gym URLs | `http://localhost:33000` |
 | `ROLLOUT_TIMEOUT_SECONDS` | Per-attempt timeout | `600` |
+| `AUTO_START_ENVIRONMENT` | Repair local Colima/Compose on submission | `true` |
+| `ENVIRONMENT_START_TIMEOUT_SECONDS` | Overall startup deadline | `180` |
+| `ENVIRONMENT_HEALTH_WAIT_SECONDS` | Metabase readiness deadline | `120` |
+| `TUNNEL_REPAIR_WAIT_SECONDS` | Tunnel-only repair window before Compose repair | `5` |
+| `SHUTDOWN_GRACE_SECONDS` | Time allowed for active agents to cancel | `15` |
+| `MAX_TASK_FILE_BYTES` | Uploaded task-file limit | `2000000` |
+| `COLIMA_CPU`, `COLIMA_MEMORY_GB`, `COLIMA_DISK_GB` | Colima resources | `4`, `4`, `60` |
 
-The implementation supports a second Compose environment through the `pool2`
-profile. It is intentionally not started by the default launcher because this
-machine has been more stable with one Metabase instance. Only enable it after
-adding a separately tunnelled second URL to `METABASE_URLS`.
+The implementation supports a second isolated Compose environment through the
+`pool2` profile. To use it, set `MAX_PARALLEL_ROLLOUTS=2` and
+`METABASE_URLS=http://localhost:33000,http://localhost:33001`. The runtime then
+starts both slots automatically. Parallelism above the configured capacity is
+rejected rather than silently capped.
+
+## Assignment coverage
+
+- **Gym:** pinned Metabase + PostgreSQL 17, restored from the supplied archive.
+- **Agent:** Gemini Computer Use sees one native `computer_use` declaration and
+  is limited to the configured Metabase origin. It receives no shell, SQL,
+  database, MCP, search, code-execution, Docker, or host-filesystem tool.
+- **Orchestration:** task JSON ingestion, configurable K/model/parallelism,
+  isolated environment slots, bounded workers, timeouts, cancellation, and one
+  active dashboard evaluation to prevent slot sharing. The separate manual CLI
+  is documented as non-concurrent.
+- **Observability:** per-attempt screenshots, action-linked manifest, model
+  trace, final answer, redacted log, result, and grading evidence.
+- **UI:** job submission and stopping, live persisted progress, K and pass^k at
+  every level, attempt replay, and real browser-history routes.
+
+The supplied assignment treats Metabase as read-only. This MVP enforces the
+agent/tool/origin boundary and instructs the model not to write; it does not
+pretend that browser method blocking is a database permission system. If write
+tasks are introduced, each rollout should receive a disposable database
+snapshot and a least-privilege account, followed by teardown or rollback.
+
+For thousands of rollouts, replace the in-process executor and JSON metadata
+with a durable queue, worker leases, a relational job store, and object storage
+for artifacts. Add idempotent attempt IDs, retries only for classified
+infrastructure failures, quotas/backpressure, and per-rollout disposable gyms.
+Those are production extensions, not necessary complexity for this local
+assignment.
 
 ## Troubleshooting
 
 | Symptom | What to do |
 | --- | --- |
-| `Cannot connect to the Docker daemon` | Run `./scripts/run_local.sh`; it starts or repairs Colima and selects its Docker context. |
-| `ERR_CONNECTION_REFUSED` at Metabase | Wait for the launcher health check to succeed. If it persists, run `docker compose logs metabase-1`. |
-| Dashboard shows an old job as missing | The server restarted; the UI stops polling stale job IDs. Start a new evaluation—saved artifacts remain in `runs/`. |
+| `Cannot connect to the Docker daemon` | Run `./scripts/run_local.sh`; it starts or repairs Colima and addresses the `colima` context explicitly. |
+| `ERR_CONNECTION_REFUSED` at Metabase | Let automatic repair finish. If it persists, run `docker --context colima compose logs metabase-1`. |
+| A previous job says it was interrupted | Rollout Studio reconciles unfinished persisted jobs after a server restart. Inspect the saved evidence, then start a new evaluation. |
 | A K value is rejected | Set `MAX_ATTEMPTS_PER_PROBLEM` to at least that value in `.env`, restart with `./scripts/run_local.sh`, then refresh the dashboard. |
-| A run reaches the timeout | Inspect its `agent.log`, trace, and screenshots; it is recorded as an infrastructure error rather than a benchmark pass. |
+| The total rollout count is rejected | Raise `MAX_ROLLOUTS_PER_EVALUATION` deliberately; the default allows the supplied 10 problems at K=10. |
+| AFC reports incompatible tools | Run `./scripts/setup_agent.sh`; preflight refuses an unpatched adapter. |
+| A run reaches the timeout | Inspect its `agent.log`, trace, and screenshots; it is recorded as a failed attempt and lowers passed/K. |
 
 ## Verification
 
@@ -218,3 +299,10 @@ Run the local test suites:
 The first suite covers the orchestrator, task parsing, grading, UI payloads,
 model validation, and cancellation. The second covers the native Computer Use
 tool configuration, blocked actions, and Playwright origin containment.
+
+Final validation on 2026-08-10: 67 project tests and 22 adapter tests passed;
+shell syntax, Python compilation, patch reproduction, and diff checks passed. A
+cold-start dashboard submission with Colima stopped automatically restored the
+Docker path, reached healthy Metabase, ran Gemini, captured 8 aligned frames,
+and passed exact JSON grading in 65.25 seconds. Its temporary artifacts were
+removed after verification so the handoff starts with an empty run history.
