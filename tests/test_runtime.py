@@ -130,14 +130,19 @@ class RuntimeTests(unittest.TestCase):
 
     def test_lifecycle_scripts_keep_startup_non_destructive(self):
         ensure_script = (ROOT / "scripts/ensure_environment.sh").read_text()
+        backend_script = (ROOT / "scripts/docker_backend.sh").read_text()
         bootstrap_script = (ROOT / "scripts/bootstrap_metabase.sh").read_text()
 
-        self.assertNotIn("METABASE_TUNNEL_PORT", ensure_script)
+        self.assertIn('scripts/docker_backend.sh', ensure_script)
         self.assertIn("METABASE_URLS", ensure_script)
         self.assertLess(
             ensure_script.index('if wait_for_health "$TUNNEL_REPAIR_WAIT_SECONDS"'),
-            ensure_script.index("docker --context colima compose up"),
+            ensure_script.index("docker_compose up"),
         )
+        self.assertIn('DOCKER_BACKEND must be auto, docker, or colima.', backend_script)
+        self.assertIn('docker --context colima', backend_script)
+        self.assertIn('docker "$@"', backend_script)
+        self.assertIn('active_docker_is_local', backend_script)
         self.assertNotIn("--clean", bootstrap_script)
         self.assertIn("rollout_studio_seed_marker", bootstrap_script)
         self.assertIn("refusing to overwrite", bootstrap_script)
@@ -182,6 +187,7 @@ exit 0
                     "METABASE_URLS": "http://localhost:43124",
                     "REQUIRED_ENVIRONMENT_COUNT": "1",
                     "TUNNEL_REPAIR_WAIT_SECONDS": "1",
+                    "DOCKER_BACKEND": "colima",
                 }
             )
             result = subprocess.run(
@@ -200,6 +206,76 @@ exit 0
             self.assertNotIn("compose up", docker_calls)
             self.assertNotIn("bootstrap", docker_calls)
 
+    def test_active_docker_backend_uses_direct_ports_without_colima(self):
+        with TemporaryDirectory() as directory:
+            temp = Path(directory)
+            bin_dir = temp / "bin"
+            bin_dir.mkdir()
+            state_file = temp / "metabase-ready"
+            docker_log = temp / "docker.log"
+            colima_log = temp / "colima.log"
+            launchctl_log = temp / "launchctl.log"
+
+            commands = {
+                "curl": f"""#!/bin/sh
+if [ -f '{state_file}' ]; then
+  printf '%s\\n' '{{"status":"ok"}}'
+  exit 0
+fi
+exit 1
+""",
+                "colima": f"#!/bin/sh\nprintf '%s\\n' \"$*\" >> '{colima_log}'\nexit 0\n",
+                "docker": f"""#!/bin/sh
+printf '%s\\n' "$*" >> '{docker_log}'
+if [ "${{1:-}}" = context ] && [ "${{2:-}}" = show ]; then
+  printf '%s\\n' desktop-linux
+fi
+if [ "${{1:-}}" = context ] && [ "${{2:-}}" = inspect ]; then
+  printf '%s\\n' unix:///Users/test/.docker/run/docker.sock
+fi
+if [ "${{1:-}}" = compose ]; then
+  for argument in "$@"; do
+    if [ "$argument" = up ]; then
+      : > '{state_file}'
+    fi
+  done
+fi
+exit 0
+""",
+                "launchctl": f"#!/bin/sh\nprintf '%s\\n' \"$*\" >> '{launchctl_log}'\nexit 0\n",
+            }
+            for name, content in commands.items():
+                command = bin_dir / name
+                command.write_text(content)
+                command.chmod(0o755)
+
+            environment = os.environ.copy()
+            environment.update(
+                {
+                    "PATH": f"{bin_dir}:{environment['PATH']}",
+                    "METABASE_URLS": "http://localhost:43125",
+                    "REQUIRED_ENVIRONMENT_COUNT": "1",
+                    "ENVIRONMENT_HEALTH_WAIT_SECONDS": "1",
+                    "DOCKER_BACKEND": "auto",
+                }
+            )
+            result = subprocess.run(
+                [str(ROOT / "scripts/ensure_environment.sh")],
+                cwd=ROOT,
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertIn("Using Docker backend: docker", result.stdout)
+            self.assertIn("Metabase environment is ready", result.stdout)
+            self.assertIn("compose up", docker_log.read_text())
+            self.assertFalse(colima_log.exists())
+            self.assertNotIn("submit", launchctl_log.read_text())
+
     def test_local_script_defaults_and_shutdown_contract(self):
         config_source = (ROOT / "app/config.py").read_text()
         run_script = (ROOT / "scripts/run_local.sh").read_text()
@@ -211,7 +287,7 @@ exit 0
         self.assertIn("math.ceil", stop_script)
         self.assertLess(
             stop_script.index("job_manager.reconcile_interrupted_jobs()"),
-            stop_script.index("docker --context colima compose"),
+            stop_script.index("docker_compose --profile pool2 down"),
         )
 
 

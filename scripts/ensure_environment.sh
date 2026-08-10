@@ -3,6 +3,7 @@ set -efu
 
 PROJECT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$PROJECT_ROOT"
+. "$PROJECT_ROOT/scripts/docker_backend.sh"
 
 COLIMA_CPU=${COLIMA_CPU:-4}
 COLIMA_MEMORY_GB=${COLIMA_MEMORY_GB:-4}
@@ -75,6 +76,7 @@ if [ "$REQUIRED_ENVIRONMENT_COUNT" -eq 2 ]; then
     exit 1
   fi
 fi
+export METABASE_PORT_1 METABASE_PORT_2
 
 health() {
   curl --fail --silent "http://127.0.0.1:$1/api/health" | grep -q '"status":"ok"'
@@ -99,6 +101,12 @@ wait_for_health() {
 }
 
 submit_tunnels() {
+  if [ "$DOCKER_BACKEND_SELECTED" != colima ]; then
+    launchctl remove com.openai.codex.colima-metabase-tunnel >/dev/null 2>&1 || true
+    launchctl remove "$TUNNEL_LABEL_1" >/dev/null 2>&1 || true
+    launchctl remove "$TUNNEL_LABEL_2" >/dev/null 2>&1 || true
+    return 0
+  fi
   # Remove the previous development label once, then maintain one tunnel per slot.
   launchctl remove com.openai.codex.colima-metabase-tunnel >/dev/null 2>&1 || true
   launchctl remove "$TUNNEL_LABEL_1" >/dev/null 2>&1 || true
@@ -107,7 +115,7 @@ submit_tunnels() {
     -o ControlMaster=no -o ControlPath=none \
     -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
     -o TCPKeepAlive=yes -o ExitOnForwardFailure=yes \
-    -N -L "127.0.0.1:${METABASE_PORT_1}:127.0.0.1:3000" colima
+    -N -L "127.0.0.1:${METABASE_PORT_1}:127.0.0.1:${METABASE_PORT_1}" colima
 
   launchctl remove "$TUNNEL_LABEL_2" >/dev/null 2>&1 || true
   if [ "$REQUIRED_ENVIRONMENT_COUNT" -eq 2 ]; then
@@ -116,58 +124,39 @@ submit_tunnels() {
       -o ControlMaster=no -o ControlPath=none \
       -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
       -o TCPKeepAlive=yes -o ExitOnForwardFailure=yes \
-      -N -L "127.0.0.1:${METABASE_PORT_2}:127.0.0.1:3001" colima
+      -N -L "127.0.0.1:${METABASE_PORT_2}:127.0.0.1:${METABASE_PORT_2}" colima
   fi
 }
 
 cleanup_unused_slot() {
   [ "$REQUIRED_ENVIRONMENT_COUNT" -eq 1 ] || return 0
   launchctl remove "$TUNNEL_LABEL_2" >/dev/null 2>&1 || true
-  if docker --context colima info >/dev/null 2>&1; then
-    docker --context colima compose --profile pool2 stop metabase-2 db-2 \
-      >/dev/null 2>&1 || true
-  fi
+  docker_compose --profile pool2 stop metabase-2 db-2 >/dev/null 2>&1 || true
 }
 
+select_docker_backend
 cleanup_unused_slot
 all_healthy && exit 0
 
-if colima status >/dev/null 2>&1; then
-  if ! docker --context colima info >/dev/null 2>&1; then
-    echo "Repairing Colima because its Docker socket is unavailable..."
-    colima stop
-    colima start --cpu "$COLIMA_CPU" --memory "$COLIMA_MEMORY_GB" --disk "$COLIMA_DISK_GB"
+if [ "$DOCKER_BACKEND_SELECTED" = colima ]; then
+  # A missing launchd tunnel is the common failure after a host restart. Repair
+  # it before touching Compose so a forwarding-only outage never invokes bootstrap.
+  submit_tunnels
+  if wait_for_health "$TUNNEL_REPAIR_WAIT_SECONDS"; then
+    echo "Metabase tunnel repaired."
+    exit 0
   fi
 else
-  echo "Starting Colima..."
-  colima start --cpu "$COLIMA_CPU" --memory "$COLIMA_MEMORY_GB" --disk "$COLIMA_DISK_GB"
-fi
-
-attempt=0
-until docker --context colima info >/dev/null 2>&1; do
-  attempt=$((attempt + 1))
-  if [ "$attempt" -ge 30 ]; then
-    echo "Colima started, but Docker did not become ready." >&2
-    exit 1
-  fi
-  sleep 1
-done
-
-cleanup_unused_slot
-
-# A missing launchd tunnel is the common failure after a host restart. Repair it
-# before touching Compose so a forwarding-only outage never invokes bootstrap.
-submit_tunnels
-if wait_for_health "$TUNNEL_REPAIR_WAIT_SECONDS"; then
-  echo "Metabase tunnel repaired."
-  exit 0
+  # Docker Desktop exposes Compose ports directly on the host. Remove any stale
+  # Colima tunnel labels before using the active local Docker engine.
+  submit_tunnels
 fi
 
 # The bootstrap service is safe to invoke repeatedly: it only restores a fresh
 # database and otherwise verifies the durable seed marker.
-docker --context colima compose up -d db-1 bootstrap-1 metabase-1
+docker_compose up -d db-1 bootstrap-1 metabase-1
 if [ "$REQUIRED_ENVIRONMENT_COUNT" -eq 2 ]; then
-  docker --context colima compose --profile pool2 up -d db-2 bootstrap-2 metabase-2
+  docker_compose --profile pool2 up -d db-2 bootstrap-2 metabase-2
 fi
 
 submit_tunnels

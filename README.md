@@ -1,17 +1,19 @@
 # Metabase Computer-Use Rollouts
 
-Local evaluation workspace for running Gemini Computer Use against a seeded,
-read-only Metabase gym. It runs on macOS through Colima and stores the complete
+Assignment-ready local evaluation workspace for running Gemini Computer Use
+against a seeded, read-only Metabase gym. It stores complete, reviewable
 evidence for every rollout: screenshots, action trace, submitted answer, logs,
 and deterministic grading results.
 
-## What runs where
+## Overview
 
-- **Colima + Docker Compose** run PostgreSQL and Metabase.
+- **Docker Compose** runs PostgreSQL and Metabase on one supported local Docker
+  backend: Colima or Docker Desktop/the active local Docker context.
 - The supplied PostgreSQL archive seeds Metabase before the app starts.
 - **Rollout Studio** is the local dashboard at `http://127.0.0.1:8000`.
-- A supervised host-to-Colima tunnel exposes the gym at
-  `http://127.0.0.1:33000` for Playwright.
+- Metabase is always exposed to Playwright at `http://127.0.0.1:33000`.
+  Colima uses a supervised SSH tunnel; Docker Desktop exposes that mapped port
+  directly.
 - The **orchestrator** starts K attempts, records artifacts, grades outputs, and
   handles cancellation. It is not exposed to Gemini.
 - Gemini can interact only with the visible Metabase UI using screenshots,
@@ -20,10 +22,32 @@ and deterministic grading results.
 
 ## Prerequisites
 
-- macOS with [Colima](https://github.com/abiosoft/colima) and the Docker CLI.
+- macOS and the Docker CLI.
+- One supported local Docker backend. You do not need both:
+  - **Colima** — install [Colima](https://github.com/abiosoft/colima) and the
+    Docker CLI. The project starts Colima automatically when no Docker engine
+    is already available.
+  - **Docker Desktop** (or another active local Docker Engine) — start it before
+    launching the project. Colima is optional in this mode.
 - Python 3 and a working `python3` command.
 - The supplied Metabase archive at `data/metabase_envdata.sql`.
 - A Gemini API key and the supplied Metabase login credentials.
+
+### Docker backend selection
+
+The lifecycle scripts choose a backend without changing your global Docker
+context:
+
+| Setting | Behavior |
+| --- | --- |
+| `DOCKER_BACKEND=auto` (default) | Use a running active Docker context first (including Docker Desktop); otherwise use a ready Colima context; otherwise start installed Colima. |
+| `DOCKER_BACKEND=docker` | Require the active local Docker engine. Useful when Docker Desktop is intentionally selected. |
+| `DOCKER_BACKEND=colima` | Require or start Colima and use its dedicated Docker context. |
+
+If neither a running Docker engine nor Colima is available, startup stops with a
+clear instruction instead of changing global Docker configuration. Docker
+Desktop is never stopped by this project; `stop_local.sh` only stops its project
+containers. Colima is stopped only when Colima was the selected backend.
 
 ## One-time setup
 
@@ -61,6 +85,7 @@ them:
 ```dotenv
 COMPUTER_USE_PYTHON=.venv/bin/python
 METABASE_URLS=http://localhost:33000
+DOCKER_BACKEND=auto
 MAX_PARALLEL_ROLLOUTS=1
 MAX_ATTEMPTS_PER_PROBLEM=10
 MAX_ROLLOUTS_PER_EVALUATION=100
@@ -78,22 +103,24 @@ ceiling; both backend validation and the displayed UI maximum use this setting.
 ./scripts/run_local.sh
 ```
 
-The script starts or repairs Colima without changing the global Docker context,
-starts PostgreSQL and Metabase, waits for `/api/health`, creates the stable
-tunnel, and starts Rollout Studio. Running it again while Rollout Studio is
-already active returns immediately and does not touch Colima or a running job.
-The supplied database archive is restored only into a fresh `root_db`; a durable
-archive-hash marker makes later repair idempotent and prevents silent overwrite.
+The script selects the configured Docker backend, starts PostgreSQL and
+Metabase, waits for `/api/health`, and starts Rollout Studio. It creates the
+stable SSH tunnel only for Colima; Docker Desktop uses the direct mapped port.
+Running it again while Rollout Studio is already active returns immediately and
+does not touch a running job. The supplied database archive is restored only
+into a fresh `root_db`; a durable archive-hash marker makes later repair
+idempotent and prevents silent overwrite.
 
 Every valid UI submission performs a cheap agent/dependency preflight and the
-same environment health check before creating the job. If Colima, Docker, the
-Compose services, or the tunnel are down, they are repaired automatically when
-`AUTO_START_ENVIRONMENT=true`. Invalid uploads never start infrastructure or
-consume Gemini quota.
+same environment health check before creating the job. If the selected Docker
+engine, Compose services, or (for Colima) tunnel are down, they are repaired
+automatically when `AUTO_START_ENVIRONMENT=true`. Invalid uploads never start
+infrastructure or consume Gemini quota.
 
 Rollout Studio itself must be running to receive an upload. Automatic repair
-starts Colima, Docker, Compose, Metabase, and the tunnel after the dashboard
-receives a valid submission; it cannot start a dashboard process that is down.
+starts the selected Docker backend, Compose, Metabase, and (for Colima) the
+tunnel after the dashboard receives a valid submission; it cannot start a
+dashboard process that is down.
 
 Open `http://127.0.0.1:8000` and leave the terminal running while an evaluation
 is active. Do **not** start Uvicorn with `--reload`: a reload loses the active,
@@ -176,13 +203,18 @@ it does not own.
   ./scripts/stop_local.sh
   ```
 
-  This stops Rollout Studio, the SSH tunnel, project containers, and Colima,
-  while preserving the seeded Docker volumes.
+  This stops Rollout Studio and the project containers while preserving the
+  seeded Docker volumes. If Colima was selected, it also stops Colima and its
+  tunnel. Docker Desktop itself is left running.
 
 - **Destructive database reset:** use this only when you explicitly want to
   discard the seeded volume and restore it from the archive on the next start:
 
   ```sh
+  # Docker Desktop or another active local Docker context
+  docker compose --profile pool2 down -v --remove-orphans
+
+  # Colima, when it is the selected backend
   docker --context colima compose --profile pool2 down -v --remove-orphans
   colima stop
   ```
@@ -245,13 +277,14 @@ errors is invalid until the affected attempts are rerun.
 | `MAX_PARALLEL_ROLLOUTS` | Maximum simultaneous attempts | `1` |
 | `METABASE_URLS` | Comma-separated isolated gym URLs | `http://localhost:33000` |
 | `ROLLOUT_TIMEOUT_SECONDS` | Per-attempt timeout | `600` |
-| `AUTO_START_ENVIRONMENT` | Repair local Colima/Compose on submission | `true` |
+| `AUTO_START_ENVIRONMENT` | Repair the selected local Docker/Compose environment on submission | `true` |
+| `DOCKER_BACKEND` | `auto`, active local Docker (`docker`), or Colima (`colima`) | `auto` |
 | `ENVIRONMENT_START_TIMEOUT_SECONDS` | Overall startup deadline | `180` |
 | `ENVIRONMENT_HEALTH_WAIT_SECONDS` | Metabase readiness deadline | `120` |
 | `TUNNEL_REPAIR_WAIT_SECONDS` | Tunnel-only repair window before Compose repair | `5` |
 | `SHUTDOWN_GRACE_SECONDS` | Time allowed for active agents to cancel | `15` |
 | `MAX_TASK_FILE_BYTES` | Uploaded task-file limit | `2000000` |
-| `COLIMA_CPU`, `COLIMA_MEMORY_GB`, `COLIMA_DISK_GB` | Colima resources | `4`, `4`, `60` |
+| `COLIMA_CPU`, `COLIMA_MEMORY_GB`, `COLIMA_DISK_GB` | Colima resources when that backend starts | `4`, `4`, `60` |
 
 The implementation supports a second isolated Compose environment through the
 `pool2` profile. To use it, set `MAX_PARALLEL_ROLLOUTS=2` and
@@ -291,8 +324,9 @@ assignment.
 
 | Symptom | What to do |
 | --- | --- |
-| `Cannot connect to the Docker daemon` | Run `./scripts/run_local.sh`; it starts or repairs Colima and addresses the `colima` context explicitly. |
-| `ERR_CONNECTION_REFUSED` at Metabase | Let automatic repair finish. If it persists, run `docker --context colima compose logs metabase-1`. |
+| `Cannot connect to the Docker daemon` | Start Docker Desktop, or install Colima and run `./scripts/run_local.sh`. With `DOCKER_BACKEND=auto`, a ready active Docker context wins; otherwise installed Colima is started. |
+| `ERR_CONNECTION_REFUSED` at Metabase | Let automatic repair finish. Then inspect `docker compose logs metabase-1` for Docker Desktop, or `docker --context colima compose logs metabase-1` for Colima. |
+| The wrong Docker backend was selected | Set `DOCKER_BACKEND=docker` for Docker Desktop/the active local engine, or `DOCKER_BACKEND=colima` for Colima, then restart. |
 | A previous job says it was interrupted | Rollout Studio reconciles unfinished persisted jobs after a server restart. Inspect the saved evidence, then start a new evaluation. |
 | A K value is rejected | Set `MAX_ATTEMPTS_PER_PROBLEM` to at least that value in `.env`, restart with `./scripts/run_local.sh`, then refresh the dashboard. |
 | The total rollout count is rejected | Raise `MAX_ROLLOUTS_PER_EVALUATION` deliberately; the default allows the supplied 10 problems at K=10. |
@@ -312,9 +346,11 @@ The first suite covers the orchestrator, task parsing, grading, UI payloads,
 model validation, and cancellation. The second covers the native Computer Use
 tool configuration, blocked actions, and Playwright origin containment.
 
-Final validation on 2026-08-10: 68 project tests and 22 adapter tests passed;
-shell syntax, Python compilation, and source checks passed. A
-cold-start dashboard submission with Colima stopped automatically restored the
-Docker path, reached healthy Metabase, ran Gemini, captured 8 aligned frames,
-and passed exact JSON grading in 65.25 seconds. Its temporary artifacts were
-removed after verification so the handoff starts with an empty run history.
+Validation on 2026-08-10: 69 project tests and 22 adapter tests passed, along
+with shell syntax, Python compilation, Docker Compose configuration, and diff
+checks. Lifecycle tests exercise both the Colima tunnel path and the direct
+Docker Desktop path with deterministic command stubs. A prior cold-start
+Colima dashboard submission restored the Docker path, reached healthy Metabase,
+ran Gemini, captured 8 aligned frames, and passed exact JSON grading in 65.25
+seconds. Its temporary artifacts were removed so the handoff starts with an
+empty run history.

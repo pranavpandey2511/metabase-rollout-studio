@@ -72,7 +72,7 @@ def _local_tunnel_ports(urls: tuple[str, ...]) -> tuple[int, ...]:
             or parsed.fragment
         ):
             raise EnvironmentUnavailable(
-                "Automatic Colima startup requires plain local Metabase URLs such as "
+                "Automatic local Docker startup requires plain local Metabase URLs such as "
                 "http://localhost:33000"
             )
         ports.append(port)

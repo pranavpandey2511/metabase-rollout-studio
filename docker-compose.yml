@@ -30,7 +30,7 @@ services:
       MB_JETTY_HOST: 0.0.0.0
       JAVA_TOOL_OPTIONS: -Xms256m -Xmx768m
     ports:
-      - "3000:3000"
+      - "${METABASE_PORT_1:-33000}:3000"
 
   bootstrap-1:
     image: postgres:17-alpine
@@ -81,7 +81,7 @@ services:
       MB_JETTY_HOST: 0.0.0.0
       JAVA_TOOL_OPTIONS: -Xms256m -Xmx768m
     ports:
-      - "3001:3000"
+      - "${METABASE_PORT_2:-33001}:3000"
 
   bootstrap-2:
     profiles: ["pool2"]

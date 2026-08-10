@@ -3,6 +3,7 @@ set -eu
 
 PROJECT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$PROJECT_ROOT"
+. "$PROJECT_ROOT/scripts/docker_backend.sh"
 
 if [ -x .venv/bin/python ]; then
   CONFIG_PYTHON=.venv/bin/python
@@ -52,11 +53,13 @@ launchctl remove com.openai.codex.colima-metabase-tunnel >/dev/null 2>&1 || true
 launchctl remove com.openai.rollout-studio.metabase-1 >/dev/null 2>&1 || true
 launchctl remove com.openai.rollout-studio.metabase-2 >/dev/null 2>&1 || true
 
-if colima status >/dev/null 2>&1; then
-  if docker --context colima info >/dev/null 2>&1; then
-    docker --context colima compose --profile pool2 down --remove-orphans
+if select_docker_backend no-start >/dev/null 2>&1; then
+  docker_compose --profile pool2 down --remove-orphans
+  if [ "$DOCKER_BACKEND_SELECTED" = colima ]; then
+    colima stop
+    echo "Rollout Studio, project containers, and Colima are stopped. Docker volumes were preserved."
+    exit 0
   fi
-  colima stop
 fi
 
-echo "Rollout Studio, project containers, and Colima are stopped. Docker volumes were preserved."
+echo "Rollout Studio and project containers are stopped. Docker volumes were preserved."
